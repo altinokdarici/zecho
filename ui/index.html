@@ -8,6 +8,24 @@
 </head>
 <body>
   <div id="app">
+    <!-- Accessibility permission prompt -->
+    <div id="accessibility-prompt" class="hidden">
+      <div class="prompt-card">
+        <div class="prompt-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M12 15v2m0-8a1.5 1.5 0 110 3 1.5 1.5 0 010-3z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" stroke-width="1.5" fill="none"/>
+          </svg>
+        </div>
+        <div class="prompt-text">
+          <strong>Enable Accessibility</strong>
+          <span>Zecho needs Accessibility permissions to capture the FN key for voice recording.</span>
+        </div>
+        <button id="btn-grant-access" class="prompt-btn">Open Settings</button>
+        <button id="btn-dismiss-access" class="prompt-dismiss">&times;</button>
+      </div>
+    </div>
+
     <div id="history-panel" class="hidden">
       <div id="history-header">
         <span>History</span>

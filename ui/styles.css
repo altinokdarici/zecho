@@ -386,4 +386,99 @@ html, body {
   color: var(--text-dim);
 }
 
+/* ── Accessibility prompt ── */
+
+#accessibility-prompt {
+  width: 300px;
+  margin-bottom: 8px;
+  animation: slideUp 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.prompt-card {
+  background: rgba(28, 28, 30, 1);
+  backdrop-filter: blur(40px);
+  border: 1px solid rgba(108, 92, 231, 0.2);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  position: relative;
+}
+
+.prompt-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(108, 92, 231, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6c5ce7;
+  flex-shrink: 0;
+}
+
+.prompt-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.prompt-text strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.prompt-text span {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.prompt-btn {
+  width: 100%;
+  padding: 8px 0;
+  border: none;
+  border-radius: 8px;
+  background: #6c5ce7;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.prompt-btn:hover {
+  background: #7d6ef0;
+}
+
+.prompt-dismiss {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: all 0.12s ease;
+}
+
+.prompt-dismiss:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+
 .hidden { display: none !important; }

@@ -1,6 +1,8 @@
+mod accessibility;
 mod audio;
 mod cleanup;
 mod history;
+mod hotkey;
 mod models;
 mod settings;
 mod transcribe;
@@ -184,6 +186,16 @@ fn load_whisper_model_cmd(model_id: String, state: tauri::State<'_, AppState>) -
 }
 
 #[tauri::command]
+fn check_accessibility() -> bool {
+    accessibility::is_accessibility_enabled()
+}
+
+#[tauri::command]
+fn open_accessibility_settings() {
+    accessibility::prompt_accessibility();
+}
+
+#[tauri::command]
 async fn check_for_updates(app: tauri::AppHandle) -> Result<Option<String>, String> {
     use tauri_plugin_updater::UpdaterExt;
     match app.updater().map_err(|e| e.to_string())?.check().await {
@@ -339,12 +351,15 @@ pub fn run() {
             download_model,
             load_cleanup_model,
             load_whisper_model_cmd,
+            check_accessibility,
+            open_accessibility_settings,
             check_for_updates,
         ])
         .setup(|app| {
             create_tray_icon(app).ok();
             position_pill(app);
             register_global_shortcut(app);
+            hotkey::start_fn_key_listener(app.handle().clone());
             Ok(())
         })
         .run(tauri::generate_context!())

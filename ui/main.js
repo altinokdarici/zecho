@@ -2,8 +2,13 @@ const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
 let isRecording = false;
+let recordingLocked = false;
 let historyVisible = false;
 let waveformInterval = null;
+let fnHoldTimer = null;
+let lastFnDown = 0;
+
+const DOUBLE_TAP_MS = 400;
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -70,6 +75,7 @@ async function startRecording() {
 async function stopRecording() {
   if (!isRecording) return;
   isRecording = false;
+  recordingLocked = false;
   stopWaveform();
   setState("processing");
   try {
@@ -85,6 +91,7 @@ async function stopRecording() {
 async function cancelRecording() {
   if (!isRecording) return;
   isRecording = false;
+  recordingLocked = false;
   stopWaveform();
   try {
     await invoke("cancel_recording");
@@ -93,6 +100,42 @@ async function cancelRecording() {
   }
   setState("idle");
 }
+
+// ── FN key: hold-to-record + double-tap-to-lock ──
+
+function handleFnDown() {
+  const now = Date.now();
+
+  if (isRecording && recordingLocked) {
+    // FN pressed while locked recording — stop it
+    stopRecording();
+    return;
+  }
+
+  if (!isRecording) {
+    // Check for double-tap
+    if (now - lastFnDown < DOUBLE_TAP_MS) {
+      // Double-tap: start and lock
+      recordingLocked = true;
+      startRecording();
+    } else {
+      // Single press: start (will stop on release unless locked)
+      recordingLocked = false;
+      startRecording();
+    }
+  }
+
+  lastFnDown = now;
+}
+
+function handleFnUp() {
+  if (isRecording && !recordingLocked) {
+    // Release after hold — stop recording
+    stopRecording();
+  }
+}
+
+// ── Utility ──
 
 function formatTime(isoString) {
   const d = new Date(isoString);
@@ -127,11 +170,11 @@ async function renderHistory() {
       .map(
         (item) => `
       <div class="history-item" data-id="${item.id}">
-        <div class="history-item-content" title="${item.text.replace(/"/g, "&quot;")}">
+        <div class="history-item-content">
           <div class="history-text">${escapeHtml(item.text)}</div>
           <div class="history-time">${formatTime(item.created_at)}</div>
         </div>
-        <button class="history-delete" data-delete-id="${item.id}" title="Delete">&times;</button>
+        <button class="history-delete" data-delete-id="${item.id}">&times;</button>
       </div>`
       )
       .join("");
@@ -178,7 +221,6 @@ function toggleHistory() {
 
 // ── Event listeners ──
 
-// Idle: click dot area or hover to reveal, then click history/settings
 $("#btn-history").addEventListener("click", (e) => {
   e.stopPropagation();
   toggleHistory();
@@ -197,7 +239,6 @@ $("#btn-settings").addEventListener("click", async (e) => {
   }
 });
 
-// Recording: cancel and stop buttons
 $("#btn-cancel").addEventListener("click", (e) => {
   e.stopPropagation();
   cancelRecording();
@@ -208,17 +249,15 @@ $("#btn-stop").addEventListener("click", (e) => {
   stopRecording();
 });
 
-// Keyboard: Escape to cancel while recording
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && isRecording) {
     cancelRecording();
   }
 });
 
-// Backend events (triggered by global hotkey)
-listen("start-recording", () => startRecording());
-listen("stop-recording", () => stopRecording());
-listen("cancel-recording", () => cancelRecording());
+// Backend events
+listen("fn-key-down", () => handleFnDown());
+listen("fn-key-up", () => handleFnUp());
 listen("toggle-recording", () => {
   if (isRecording) {
     stopRecording();
@@ -226,5 +265,35 @@ listen("toggle-recording", () => {
     startRecording();
   }
 });
+listen("transcription-complete", () => {
+  setState("done");
+  setTimeout(() => setState("idle"), 1200);
+});
+
+// ── Accessibility check ──
+
+async function checkAccessibility() {
+  try {
+    const hasAccess = await invoke("check_accessibility");
+    if (!hasAccess) {
+      $("#accessibility-prompt").classList.remove("hidden");
+    }
+  } catch (err) {
+    console.error("Accessibility check error:", err);
+  }
+}
+
+$("#btn-grant-access").addEventListener("click", async () => {
+  try {
+    await invoke("open_accessibility_settings");
+  } catch (err) {
+    console.error(err);
+  }
+});
+
+$("#btn-dismiss-access").addEventListener("click", () => {
+  $("#accessibility-prompt").classList.add("hidden");
+});
 
 setState("idle");
+checkAccessibility();
