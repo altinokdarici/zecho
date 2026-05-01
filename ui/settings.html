@@ -230,6 +230,137 @@
       font-size: 15px;
     }
 
+    /* ── Model cards ── */
+    .model-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .model-card {
+      background: var(--surface);
+      border: 2px solid transparent;
+      border-radius: var(--card-radius);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+
+    .model-card:hover { background: var(--surface-hover); }
+    .model-card.active { border-color: var(--accent); background: var(--accent-light); }
+
+    .model-info { flex: 1; min-width: 0; }
+
+    .model-name {
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .model-name .badge {
+      font-size: 10px;
+      font-weight: 500;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--accent-light);
+      color: #c8b6ff;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .model-desc {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .model-meta {
+      display: flex;
+      gap: 12px;
+      margin-top: 6px;
+    }
+
+    .model-stat {
+      font-size: 11px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .stat-bar {
+      display: flex;
+      gap: 2px;
+    }
+
+    .stat-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 2px;
+      background: #48484a;
+    }
+
+    .stat-dot.filled { background: var(--accent); }
+    .stat-dot.filled.green { background: #30d158; }
+
+    .model-action {
+      flex-shrink: 0;
+    }
+
+    .model-btn {
+      padding: 6px 14px;
+      border-radius: 8px;
+      border: none;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: inherit;
+    }
+
+    .model-btn.download {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .model-btn.download:hover {
+      background: #7d6ef0;
+    }
+
+    .model-btn.active-btn {
+      background: rgba(48, 209, 88, 0.12);
+      color: #30d158;
+      cursor: default;
+    }
+
+    .model-btn.select {
+      background: var(--bg);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+
+    .model-btn.select:hover {
+      color: var(--text);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .model-btn.downloading {
+      background: var(--bg);
+      color: var(--text-secondary);
+      cursor: wait;
+    }
+
+    .model-size {
+      font-size: 11px;
+      color: #636366;
+      margin-top: 2px;
+    }
+
     /* ── Hotkey display ── */
     .hotkey-display {
       display: flex;
@@ -342,6 +473,18 @@
     </div>
   </div>
 
+  <!-- Models -->
+  <div class="section">
+    <div class="section-label">Speech-to-Text Model</div>
+    <div class="model-list" id="whisper-models"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-label">Text Cleanup Model</div>
+    <div class="model-list" id="cleanup-models"></div>
+    <div class="section-info">Larger models produce better results but use more memory and are slower. Qwen 3 1.7B is recommended for most users.</div>
+  </div>
+
   <!-- Custom prompt -->
   <div class="section">
     <div class="section-label">Custom Instructions</div>
@@ -409,7 +552,113 @@
       }, 500);
     });
 
+    // ── Models ──
+
+    function renderScoreDots(score, max, colorClass) {
+      let html = '<div class="stat-bar">';
+      for (let i = 0; i < max; i++) {
+        html += `<div class="stat-dot${i < score ? ` filled ${colorClass}` : ""}"></div>`;
+      }
+      return html + "</div>";
+    }
+
+    function renderModelCard(model, isActive) {
+      const qualityDots = renderScoreDots(model.quality_score, 10, "");
+      const speedDots = renderScoreDots(model.speed_score, 10, "green");
+
+      let actionHtml;
+      if (!model.downloaded) {
+        actionHtml = `<button class="model-btn download" onclick="downloadModel('${model.id}')" id="btn-${model.id}">Download</button>`;
+      } else if (isActive) {
+        actionHtml = `<button class="model-btn active-btn">Active</button>`;
+      } else {
+        actionHtml = `<button class="model-btn select" onclick="selectModel('${model.id}', '${model.model_type}')">Use</button>`;
+      }
+
+      const recommended = model.description.includes("Recommended") ? '<span class="badge">Rec</span>' : "";
+
+      return `
+        <div class="model-card${isActive ? " active" : ""}">
+          <div class="model-info">
+            <div class="model-name">${model.name} ${recommended}</div>
+            <div class="model-desc">${model.description}</div>
+            <div class="model-meta">
+              <div class="model-stat">Quality ${qualityDots}</div>
+              <div class="model-stat">Speed ${speedDots}</div>
+            </div>
+            <div class="model-size">${model.size_mb >= 1000 ? (model.size_mb / 1024).toFixed(1) + " GB" : model.size_mb + " MB"}</div>
+          </div>
+          <div class="model-action">${actionHtml}</div>
+        </div>`;
+    }
+
+    let currentWhisperModel = "whisper-base-en";
+    let currentCleanupModel = "qwen3-1.7b";
+
+    async function loadModels() {
+      try {
+        const models = await invoke("list_models");
+        const whisperList = document.getElementById("whisper-models");
+        const cleanupList = document.getElementById("cleanup-models");
+
+        whisperList.innerHTML = models
+          .filter((m) => m.model_type === "Whisper")
+          .map((m) => renderModelCard(m, m.id === currentWhisperModel))
+          .join("");
+
+        cleanupList.innerHTML = models
+          .filter((m) => m.model_type === "Cleanup")
+          .map((m) => renderModelCard(m, m.id === currentCleanupModel))
+          .join("");
+      } catch (err) {
+        console.error("Failed to load models:", err);
+      }
+    }
+
+    async function downloadModel(modelId) {
+      const btn = document.getElementById(`btn-${modelId}`);
+      if (btn) {
+        btn.textContent = "Downloading...";
+        btn.className = "model-btn downloading";
+        btn.disabled = true;
+      }
+      try {
+        await invoke("download_model", { modelId });
+      } catch (err) {
+        console.error("Download error:", err);
+        if (btn) {
+          btn.textContent = "Retry";
+          btn.className = "model-btn download";
+          btn.disabled = false;
+        }
+      }
+    }
+
+    async function selectModel(modelId, modelType) {
+      try {
+        if (modelType === "Whisper") {
+          await invoke("load_whisper_model_cmd", { modelId });
+          currentWhisperModel = modelId;
+        } else {
+          await invoke("load_cleanup_model", { modelId });
+          currentCleanupModel = modelId;
+        }
+        loadModels();
+      } catch (err) {
+        console.error("Model load error:", err);
+      }
+    }
+
+    // Listen for download completion events
+    const { listen } = window.__TAURI__.event;
+    listen("model-download-complete", () => loadModels());
+    listen("model-download-error", (event) => {
+      console.error("Download failed:", event.payload);
+      loadModels();
+    });
+
     loadSettings();
+    loadModels();
   </script>
 </body>
 </html>

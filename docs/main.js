@@ -20,20 +20,33 @@ document.querySelectorAll(
   observer.observe(el);
 });
 
-// Add visible class styles
 const style = document.createElement("style");
 style.textContent = `.visible { opacity: 1 !important; transform: translateY(0) !important; }`;
 document.head.appendChild(style);
 
-// Stagger feature cards
 document.querySelectorAll(".feature-card").forEach((card, i) => {
   card.style.transitionDelay = `${i * 0.08}s`;
 });
 
-// Nav shrink on scroll
+// Nav background on scroll
 const nav = document.querySelector("nav");
 window.addEventListener("scroll", () => {
   nav.style.background = window.scrollY > 60
     ? "rgba(10, 10, 12, 0.92)"
     : "rgba(10, 10, 12, 0.7)";
 }, { passive: true });
+
+// Platform detection — highlight the user's OS download card
+const platform = navigator.platform.toLowerCase();
+const isMac = platform.includes("mac");
+const isWin = platform.includes("win");
+const cards = document.querySelectorAll(".download-card");
+cards.forEach((card) => {
+  const label = card.querySelector(".download-info strong");
+  if (!label) return;
+  const os = label.textContent.trim().toLowerCase();
+  if ((isMac && os === "macos") || (isWin && os === "windows")) {
+    card.style.borderColor = "rgba(108, 92, 231, 0.4)";
+    card.style.background = "rgba(108, 92, 231, 0.06)";
+  }
+});

@@ -9,34 +9,13 @@ on:
         type: string
 
 jobs:
-  build-macos:
-    runs-on: macos-latest
-    permissions:
-      contents: write
+  set-version:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-apple-darwin,x86_64-apple-darwin
-
-      - name: Install dependencies
-        run: brew install cmake
-
-      - name: Download whisper model
-        run: |
-          MODEL_DIR="${HOME}/Library/Application Support/zecho/models"
-          mkdir -p "${MODEL_DIR}"
-          curl -L --progress-bar \
-            -o "${MODEL_DIR}/ggml-base.en.bin" \
-            "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin"
-          ls -lh "${MODEL_DIR}/"
-
       - name: Set version in config files
         run: |
           cd src-tauri
-          # Update tauri.conf.json version
           python3 -c "
           import json
           with open('tauri.conf.json', 'r') as f:
@@ -45,8 +24,34 @@ jobs:
           with open('tauri.conf.json', 'w') as f:
               json.dump(config, f, indent=2)
           "
-          # Update Cargo.toml version
-          sed -i '' 's/^version = ".*"/version = "${{ inputs.version }}"/' Cargo.toml
+          sed -i 's/^version = ".*"/version = "${{ inputs.version }}"/' Cargo.toml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: versioned-config
+          path: |
+            src-tauri/tauri.conf.json
+            src-tauri/Cargo.toml
+
+  build-macos:
+    needs: set-version
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: versioned-config
+          path: src-tauri/
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Install dependencies
+        run: brew install cmake
 
       - name: Build and release
         uses: tauri-apps/tauri-action@v0
@@ -63,8 +68,42 @@ jobs:
             Voice-to-clipboard with local AI processing.
 
             ### Installation
-            Download the `.dmg` file below and drag Zecho to your Applications folder.
+            - **macOS**: Download the `.dmg` file and drag Zecho to Applications
+            - **Windows**: Download and run the `.msi` installer
+
+            Models are downloaded automatically on first launch.
             The app auto-updates from future releases.
           releaseDraft: false
           prerelease: false
           args: --target universal-apple-darwin
+
+  build-windows:
+    needs: set-version
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: versioned-config
+          path: src-tauri/
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install CMake
+        uses: lukka/get-cmake@latest
+
+      - name: Build and release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: v${{ inputs.version }}
+          releaseName: "Zecho v${{ inputs.version }}"
+          releaseDraft: false
+          prerelease: false
