@@ -21,6 +21,7 @@ hound = "3"
 whisper-rs = "0.14"
 tokio = { version = "1", features = ["full"] }
 reqwest = { version = "0.12", features = ["json", "blocking"] }
+llama-cpp-2 = "0.1"
 
 [build-dependencies]
 tauri-build = "2"

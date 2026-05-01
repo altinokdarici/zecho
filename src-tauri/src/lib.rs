@@ -1,12 +1,14 @@
 mod audio;
 mod cleanup;
 mod history;
+mod models;
 mod settings;
 mod transcribe;
 
 use audio::AudioRecorder;
 use cleanup::TextCleaner;
 use history::{HistoryItem, HistoryStore};
+use models::ModelStatus;
 use settings::Settings;
 use std::sync::Mutex;
 use tauri::{Emitter, Manager};
@@ -132,9 +134,53 @@ fn update_settings(new_settings: Settings, state: tauri::State<'_, AppState>) ->
 }
 
 #[tauri::command]
-fn get_model_status(state: tauri::State<'_, AppState>) -> Result<bool, String> {
-    let transcriber = state.transcriber.lock().map_err(|e| e.to_string())?;
-    Ok(transcriber.is_loaded())
+fn list_models() -> Vec<ModelStatus> {
+    models::list_models()
+}
+
+#[tauri::command]
+fn download_model(model_id: String, app: tauri::AppHandle) -> Result<(), String> {
+    let info = models::get_model(&model_id).ok_or("Unknown model")?;
+
+    std::thread::spawn({
+        let info = info.clone();
+        let app = app.clone();
+        move || {
+            app.emit("model-download-started", &info.id).ok();
+            match models::download_model_blocking(&info) {
+                Ok(_) => {
+                    app.emit("model-download-complete", &info.id).ok();
+                }
+                Err(e) => {
+                    app.emit("model-download-error", &e).ok();
+                }
+            }
+        }
+    });
+
+    Ok(())
+}
+
+#[tauri::command]
+fn load_cleanup_model(model_id: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let info = models::get_model(&model_id).ok_or("Unknown model")?;
+    let path = models::model_path(info);
+    if !path.exists() {
+        return Err(format!("Model not downloaded: {}", info.name));
+    }
+    let mut cleaner = state.cleaner.lock().map_err(|e| e.to_string())?;
+    cleaner.load_model(&path)
+}
+
+#[tauri::command]
+fn load_whisper_model_cmd(model_id: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let info = models::get_model(&model_id).ok_or("Unknown model")?;
+    let path = models::model_path(info);
+    if !path.exists() {
+        return Err(format!("Model not downloaded: {}", info.name));
+    }
+    let mut transcriber = state.transcriber.lock().map_err(|e| e.to_string())?;
+    transcriber.load_model(&path)
 }
 
 #[tauri::command]
@@ -204,7 +250,7 @@ fn position_pill(app: &tauri::App) {
             let screen = monitor.size();
             let scale = monitor.scale_factor();
             let win_w = (280.0 * scale) as i32;
-            let win_h = (56.0 * scale) as i32;
+            let win_h = (480.0 * scale) as i32;
             let x = (screen.width as i32 - win_w) / 2;
             let y = screen.height as i32 - win_h - (60.0 * scale) as i32;
             window
@@ -214,21 +260,33 @@ fn position_pill(app: &tauri::App) {
     }
 }
 
-fn load_whisper_model(transcriber: &Mutex<Transcriber>) {
-    let model_path = Transcriber::default_model_path();
-    if model_path.exists() {
-        if let Ok(mut t) = transcriber.lock() {
-            if let Err(e) = t.load_model(&model_path) {
-                eprintln!("Failed to load whisper model: {}", e);
-            } else {
-                println!("Whisper model loaded from {}", model_path.display());
+fn init_models(state: &AppState) {
+    // Load whisper model
+    let whisper_model = models::default_whisper_model();
+    let whisper_path = models::model_path(whisper_model);
+    if whisper_path.exists() {
+        if let Ok(mut t) = state.transcriber.lock() {
+            match t.load_model(&whisper_path) {
+                Ok(()) => println!("Whisper model loaded: {}", whisper_model.name),
+                Err(e) => eprintln!("Failed to load whisper model: {}", e),
             }
         }
     } else {
-        eprintln!(
-            "Whisper model not found at {}. Run scripts/download-models.sh or the app will download it on first launch.",
-            model_path.display()
-        );
+        eprintln!("Whisper model not found. Run: scripts/download-models.sh");
+    }
+
+    // Load cleanup model
+    let cleanup_model = models::default_cleanup_model();
+    let cleanup_path = models::model_path(cleanup_model);
+    if cleanup_path.exists() {
+        if let Ok(mut c) = state.cleaner.lock() {
+            match c.load_model(&cleanup_path) {
+                Ok(()) => println!("Cleanup model loaded: {}", cleanup_model.name),
+                Err(e) => eprintln!("Failed to load cleanup model: {}", e),
+            }
+        }
+    } else {
+        eprintln!("Cleanup model not available — using basic text cleanup. Download via Settings > Models.");
     }
 }
 
@@ -238,22 +296,21 @@ pub fn run() {
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("zecho");
     std::fs::create_dir_all(&data_dir).ok();
-    std::fs::create_dir_all(Transcriber::model_dir()).ok();
+    std::fs::create_dir_all(models::model_dir()).ok();
 
-    let transcriber = Mutex::new(Transcriber::new());
+    let state = AppState {
+        recorder: Mutex::new(AudioRecorder::new()),
+        transcriber: Mutex::new(Transcriber::new()),
+        cleaner: Mutex::new(TextCleaner::new()),
+        history: Mutex::new(HistoryStore::load(&data_dir)),
+        settings: Mutex::new(Settings::load(&data_dir)),
+    };
 
-    // Load whisper model in background to not block startup
-    load_whisper_model(&transcriber);
+    init_models(&state);
 
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .manage(AppState {
-            recorder: Mutex::new(AudioRecorder::new()),
-            transcriber,
-            cleaner: Mutex::new(TextCleaner::new()),
-            history: Mutex::new(HistoryStore::load(&data_dir)),
-            settings: Mutex::new(Settings::load(&data_dir)),
-        })
+        .manage(state)
         .invoke_handler(tauri::generate_handler![
             start_recording,
             stop_recording,
@@ -265,7 +322,10 @@ pub fn run() {
             open_settings,
             get_settings,
             update_settings,
-            get_model_status,
+            list_models,
+            download_model,
+            load_cleanup_model,
+            load_whisper_model_cmd,
             check_for_updates,
         ])
         .setup(|app| {
