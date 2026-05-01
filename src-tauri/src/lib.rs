@@ -260,6 +260,18 @@ fn position_pill(app: &tauri::App) {
     }
 }
 
+fn register_global_shortcut(app: &tauri::App) {
+    use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut};
+
+    let shortcut = Shortcut::new(Some(Modifiers::ALT), Code::Space);
+    match app.global_shortcut().on_shortcut(shortcut, |app_handle, _shortcut, _event| {
+        let _ = app_handle.emit("toggle-recording", ());
+    }) {
+        Ok(()) => println!("Global shortcut registered: Option+Space"),
+        Err(e) => eprintln!("Failed to register global shortcut: {}", e),
+    }
+}
+
 fn init_models(state: &AppState) {
     // Load whisper model
     let whisper_model = models::default_whisper_model();
@@ -310,6 +322,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(state)
         .invoke_handler(tauri::generate_handler![
             start_recording,
@@ -331,6 +344,7 @@ pub fn run() {
         .setup(|app| {
             create_tray_icon(app).ok();
             position_pill(app);
+            register_global_shortcut(app);
             Ok(())
         })
         .run(tauri::generate_context!())

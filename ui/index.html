@@ -11,7 +11,7 @@
     <div id="history-panel" class="hidden">
       <div id="history-header">
         <span>History</span>
-        <button id="history-close" class="icon-btn" title="Close">&times;</button>
+        <button id="history-close" class="icon-btn">&times;</button>
       </div>
       <div id="history-list"></div>
       <div id="history-empty" class="hidden">No recordings yet</div>
@@ -20,30 +20,30 @@
     <div id="pill" data-tauri-drag-region>
       <!-- Collapsed (default): thin bar with subtle indicator -->
       <div id="state-idle" data-tauri-drag-region>
-        <button id="btn-history" class="pill-action" title="History">
+        <button id="btn-history" class="pill-action">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
             <path d="M8 3.5V8L10.5 10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
             <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5" fill="none"/>
           </svg>
         </button>
         <div class="idle-dot"></div>
-        <button id="btn-settings" class="pill-action" title="Settings">
+        <button id="btn-settings" class="pill-action">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-            <circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.5" fill="none"/>
-            <path d="M8 1.5V3M8 13V14.5M1.5 8H3M13 8H14.5M3.05 3.05L4.11 4.11M11.89 11.89L12.95 12.95M12.95 3.05L11.89 4.11M4.11 11.89L3.05 12.95" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            <path d="M6.6 1.2h2.8l.4 1.9.7.3 1.7-1 2 2-1 1.7.3.7 1.9.4v2.8l-1.9.4-.3.7 1 1.7-2 2-1.7-1-.7.3-.4 1.9H6.6l-.4-1.9-.7-.3-1.7 1-2-2 1-1.7-.3-.7L.6 9.8V7l1.9-.4.3-.7-1-1.7 2-2 1.7 1 .7-.3.4-1.9z" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linejoin="round"/>
+            <circle cx="8" cy="8.4" r="2" stroke="currentColor" stroke-width="1.2" fill="none"/>
           </svg>
         </button>
       </div>
 
       <!-- Recording: cancel, waveform, stop -->
       <div id="state-recording" class="hidden">
-        <button id="btn-cancel" class="rec-btn cancel-btn" title="Cancel (Esc)">
+        <button id="btn-cancel" class="rec-btn cancel-btn">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
             <path d="M3.5 3.5L10.5 10.5M10.5 3.5L3.5 10.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
         </button>
         <canvas id="waveform" width="120" height="28"></canvas>
-        <button id="btn-stop" class="rec-btn stop-btn" title="Stop (Fn)">
+        <button id="btn-stop" class="rec-btn stop-btn">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
             <rect x="1" y="1" width="10" height="10" rx="2" fill="currentColor"/>
           </svg>

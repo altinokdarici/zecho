@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Default capabilities for Zecho","local":true,"windows":["*"],"permissions":["core:default","core:event:default","global-shortcut:default"]}}
