@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zecho</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <div id="history-panel" class="hidden">
+      <div id="history-header">
+        <span>History</span>
+        <button id="history-close" class="icon-btn" title="Close">&times;</button>
+      </div>
+      <div id="history-list"></div>
+      <div id="history-empty" class="hidden">No recordings yet</div>
+    </div>
+
+    <div id="pill" data-tauri-drag-region>
+      <!-- Collapsed (default): thin bar with subtle indicator -->
+      <div id="state-idle" data-tauri-drag-region>
+        <button id="btn-history" class="pill-action" title="History">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M8 3.5V8L10.5 10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5" fill="none"/>
+          </svg>
+        </button>
+        <div class="idle-dot"></div>
+        <button id="btn-settings" class="pill-action" title="Settings">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            <path d="M8 1.5V3M8 13V14.5M1.5 8H3M13 8H14.5M3.05 3.05L4.11 4.11M11.89 11.89L12.95 12.95M12.95 3.05L11.89 4.11M4.11 11.89L3.05 12.95" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Recording: cancel, waveform, stop -->
+      <div id="state-recording" class="hidden">
+        <button id="btn-cancel" class="rec-btn cancel-btn" title="Cancel (Esc)">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M3.5 3.5L10.5 10.5M10.5 3.5L3.5 10.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <canvas id="waveform" width="120" height="28"></canvas>
+        <button id="btn-stop" class="rec-btn stop-btn" title="Stop (Fn)">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <rect x="1" y="1" width="10" height="10" rx="2" fill="currentColor"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Processing -->
+      <div id="state-processing" class="hidden">
+        <div id="spinner"></div>
+        <span class="pill-label">Processing</span>
+      </div>
+
+      <!-- Done -->
+      <div id="state-done" class="hidden">
+        <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+          <path d="M4 9L7.5 12.5L14 5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="pill-label">Copied</span>
+      </div>
+    </div>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>

@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zecho Settings</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #1c1c1e;
+      --surface: #2c2c2e;
+      --surface-hover: #3a3a3c;
+      --text: #f5f5f7;
+      --text-secondary: #98989d;
+      --accent: #6c5ce7;
+      --accent-light: rgba(108, 92, 231, 0.15);
+      --border: rgba(255, 255, 255, 0.08);
+      --card-radius: 14px;
+      --preview-bg: rgba(108, 92, 231, 0.08);
+      --preview-text: #c8b6ff;
+    }
+
+    body {
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", sans-serif;
+      color: var(--text);
+      -webkit-user-select: none;
+      user-select: none;
+      padding: 0;
+    }
+
+    /* ── Header ── */
+    .header {
+      padding: 24px 28px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .header-sub {
+      font-size: 13px;
+      color: var(--text-secondary);
+      padding: 4px 28px 20px;
+    }
+
+    /* ── Sections ── */
+    .section {
+      padding: 0 20px;
+      margin-bottom: 28px;
+    }
+
+    .section-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 0 8px 10px;
+    }
+
+    .section-info {
+      font-size: 12px;
+      color: var(--text-secondary);
+      padding: 8px 8px 0;
+      line-height: 1.5;
+    }
+
+    /* ── Card grid (style/cleanup pickers) ── */
+    .card-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .card-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+    .card-grid.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+
+    .option-card {
+      background: var(--surface);
+      border: 2px solid transparent;
+      border-radius: var(--card-radius);
+      padding: 14px 14px 12px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .option-card:hover {
+      background: var(--surface-hover);
+    }
+
+    .option-card.selected {
+      border-color: var(--accent);
+      background: var(--accent-light);
+    }
+
+    .option-card .card-title {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .option-card .card-desc {
+      font-size: 11px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+
+    .option-card .card-preview {
+      margin-top: 8px;
+      padding: 10px;
+      background: var(--preview-bg);
+      border-radius: 8px;
+      font-size: 11px;
+      line-height: 1.5;
+      color: var(--preview-text);
+    }
+
+    /* ── Row settings ── */
+    .settings-group {
+      background: var(--surface);
+      border-radius: var(--card-radius);
+      overflow: hidden;
+    }
+
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      min-height: 48px;
+    }
+
+    .setting-row + .setting-row {
+      border-top: 1px solid var(--border);
+    }
+
+    .setting-row .label {
+      font-size: 15px;
+      font-weight: 400;
+    }
+
+    .setting-row .value {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    /* ── Toggle ── */
+    .toggle {
+      position: relative;
+      width: 46px;
+      height: 28px;
+      cursor: pointer;
+    }
+
+    .toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      background: #48484a;
+      border-radius: 14px;
+      transition: background 0.2s ease;
+    }
+
+    .toggle input:checked + .toggle-track {
+      background: var(--accent);
+    }
+
+    .toggle-knob {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 24px;
+      height: 24px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+
+    .toggle input:checked ~ .toggle-knob {
+      transform: translateX(18px);
+    }
+
+    /* ── Textarea ── */
+    .custom-prompt {
+      background: var(--surface);
+      border-radius: var(--card-radius);
+      padding: 14px 16px;
+    }
+
+    .custom-prompt textarea {
+      width: 100%;
+      min-height: 64px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 13px;
+      padding: 10px 12px;
+      resize: vertical;
+      outline: none;
+      margin-top: 8px;
+      transition: border-color 0.15s ease;
+    }
+
+    .custom-prompt textarea:focus {
+      border-color: var(--accent);
+    }
+
+    .custom-prompt textarea::placeholder {
+      color: #636366;
+    }
+
+    .custom-prompt .label {
+      font-size: 15px;
+    }
+
+    /* ── Hotkey display ── */
+    .hotkey-display {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    kbd {
+      display: inline-block;
+      padding: 3px 7px;
+      font-size: 12px;
+      font-family: inherit;
+      font-weight: 500;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-secondary);
+    }
+
+    /* ── Footer ── */
+    .footer {
+      padding: 12px 28px 24px;
+      text-align: center;
+      font-size: 11px;
+      color: #48484a;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>Settings</h1>
+  </div>
+  <p class="header-sub">Configure how Zecho processes your voice.</p>
+
+  <!-- Writing Style -->
+  <div class="section">
+    <div class="section-label">Writing Style</div>
+    <div class="card-grid cols-3" id="style-grid">
+      <div class="option-card" data-style="Formal">
+        <div class="card-title">Formal.</div>
+        <div class="card-desc">Caps + Punctuation</div>
+        <div class="card-preview">Hey, are you free for lunch tomorrow? Let's do 12 if that works for you.</div>
+      </div>
+      <div class="option-card" data-style="Casual">
+        <div class="card-title">Casual</div>
+        <div class="card-desc">Caps + Less punctuation</div>
+        <div class="card-preview">Hey are you free for lunch tomorrow? Let's do 12 if that works for you</div>
+      </div>
+      <div class="option-card" data-style="VeryCasual">
+        <div class="card-title">very casual</div>
+        <div class="card-desc">No caps + Less punctuation</div>
+        <div class="card-preview">hey are you free for lunch tomorrow? let's do 12 if that works for you</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cleanup Level -->
+  <div class="section">
+    <div class="section-label">Auto Cleanup</div>
+    <div class="card-grid cols-4" id="cleanup-grid">
+      <div class="option-card" data-level="None">
+        <div class="card-title">None</div>
+        <div class="card-desc">Transcribes exactly what you said</div>
+        <div class="card-preview">hey we still on for coffee or? I think we maybe should leave earlier um to make it there in time</div>
+      </div>
+      <div class="option-card" data-level="Light">
+        <div class="card-title">Light</div>
+        <div class="card-desc">Cleans up filler words and grammar</div>
+        <div class="card-preview">Hey, are we still on for coffee? I think we should leave earlier to make it there in time.</div>
+      </div>
+      <div class="option-card" data-level="Medium">
+        <div class="card-title">Medium</div>
+        <div class="card-desc">Edits for clarity and conciseness</div>
+        <div class="card-preview">Hey, are we still on for coffee? We should leave earlier; there might be traffic.</div>
+      </div>
+      <div class="option-card" data-level="High">
+        <div class="card-title">High</div>
+        <div class="card-desc">Rewrites for brevity and polish</div>
+        <div class="card-preview">Hey, still on for coffee? Let's leave early to beat traffic.</div>
+      </div>
+    </div>
+    <div class="section-info">Your original dictation is always saved. Go to History to access the unedited version.</div>
+  </div>
+
+  <!-- General settings -->
+  <div class="section">
+    <div class="section-label">General</div>
+    <div class="settings-group">
+      <div class="setting-row">
+        <span class="label">Auto-paste after recording</span>
+        <label class="toggle">
+          <input type="checkbox" id="auto-paste" checked />
+          <span class="toggle-track"></span>
+          <span class="toggle-knob"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <span class="label">Hotkey</span>
+        <div class="hotkey-display">
+          <kbd id="hotkey-display">Ctrl</kbd>
+          <kbd>Shift</kbd>
+          <kbd>R</kbd>
+        </div>
+      </div>
+      <div class="setting-row">
+        <span class="label">Whisper Model</span>
+        <span class="value" id="model-display">base.en</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom prompt -->
+  <div class="section">
+    <div class="section-label">Custom Instructions</div>
+    <div class="custom-prompt">
+      <span class="label">Additional cleanup prompt</span>
+      <textarea id="custom-prompt" placeholder="e.g. &quot;Always use Oxford commas&quot; or &quot;Keep technical jargon as-is&quot;"></textarea>
+    </div>
+    <div class="section-info">These instructions are appended to the cleanup prompt. Leave blank for defaults.</div>
+  </div>
+
+  <div class="footer">Zecho v0.1.0</div>
+
+  <script>
+    const { invoke } = window.__TAURI__.core;
+
+    let settings = {};
+
+    function selectCard(grid, attr, value) {
+      grid.querySelectorAll(".option-card").forEach((card) => {
+        card.classList.toggle("selected", card.dataset[attr] === value);
+      });
+    }
+
+    async function loadSettings() {
+      settings = await invoke("get_settings");
+
+      selectCard(document.getElementById("style-grid"), "style", settings.writing_style);
+      selectCard(document.getElementById("cleanup-grid"), "level", settings.cleanup_level);
+
+      document.getElementById("auto-paste").checked = settings.auto_paste;
+      document.getElementById("custom-prompt").value = settings.custom_prompt || "";
+    }
+
+    async function saveSettings() {
+      await invoke("update_settings", { newSettings: settings });
+    }
+
+    document.getElementById("style-grid").addEventListener("click", (e) => {
+      const card = e.target.closest(".option-card");
+      if (!card) return;
+      settings.writing_style = card.dataset.style;
+      selectCard(document.getElementById("style-grid"), "style", settings.writing_style);
+      saveSettings();
+    });
+
+    document.getElementById("cleanup-grid").addEventListener("click", (e) => {
+      const card = e.target.closest(".option-card");
+      if (!card) return;
+      settings.cleanup_level = card.dataset.level;
+      selectCard(document.getElementById("cleanup-grid"), "level", settings.cleanup_level);
+      saveSettings();
+    });
+
+    document.getElementById("auto-paste").addEventListener("change", (e) => {
+      settings.auto_paste = e.target.checked;
+      saveSettings();
+    });
+
+    let promptTimeout;
+    document.getElementById("custom-prompt").addEventListener("input", (e) => {
+      clearTimeout(promptTimeout);
+      promptTimeout = setTimeout(() => {
+        settings.custom_prompt = e.target.value || null;
+        saveSettings();
+      }, 500);
+    });
+
+    loadSettings();
+  </script>
+</body>
+</html>

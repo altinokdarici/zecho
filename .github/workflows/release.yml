@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g. 0.2.0)"
+        required: true
+        type: string
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Install dependencies
+        run: brew install cmake
+
+      - name: Download whisper model
+        run: |
+          MODEL_DIR="${HOME}/Library/Application Support/zecho/models"
+          mkdir -p "${MODEL_DIR}"
+          curl -L --progress-bar \
+            -o "${MODEL_DIR}/ggml-base.en.bin" \
+            "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin"
+          ls -lh "${MODEL_DIR}/"
+
+      - name: Set version in config files
+        run: |
+          cd src-tauri
+          # Update tauri.conf.json version
+          python3 -c "
+          import json
+          with open('tauri.conf.json', 'r') as f:
+              config = json.load(f)
+          config['version'] = '${{ inputs.version }}'
+          with open('tauri.conf.json', 'w') as f:
+              json.dump(config, f, indent=2)
+          "
+          # Update Cargo.toml version
+          sed -i '' 's/^version = ".*"/version = "${{ inputs.version }}"/' Cargo.toml
+
+      - name: Build and release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: v${{ inputs.version }}
+          releaseName: "Zecho v${{ inputs.version }}"
+          releaseBody: |
+            ## Zecho v${{ inputs.version }}
+
+            Voice-to-clipboard with local AI processing.
+
+            ### Installation
+            Download the `.dmg` file below and drag Zecho to your Applications folder.
+            The app auto-updates from future releases.
+          releaseDraft: false
+          prerelease: false
+          args: --target universal-apple-darwin
