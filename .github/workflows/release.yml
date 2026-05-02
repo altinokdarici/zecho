@@ -48,7 +48,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-darwin,x86_64-apple-darwin
+          targets: aarch64-apple-darwin
 
       - name: Install dependencies
         run: brew install cmake
@@ -75,7 +75,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CMAKE_OSX_DEPLOYMENT_TARGET: "12.0"
           MACOSX_DEPLOYMENT_TARGET: "12.0"
-          CMAKE_ARGS: "-DGGML_CPU_ARM_ARCH=armv8.2-a"
         with:
           tagName: v${{ inputs.version }}
           releaseName: "Zecho v${{ inputs.version }}"
@@ -94,7 +93,7 @@ jobs:
             - Grant Accessibility permission for FN key recording
           releaseDraft: false
           prerelease: false
-          args: --target universal-apple-darwin
+          args: --target aarch64-apple-darwin
 
   update-homepage:
     needs: build-macos
