@@ -310,15 +310,25 @@ $("#btn-dismiss-access").addEventListener("click", () => {
   $("#accessibility-prompt").classList.add("hidden");
 });
 
-// ── Drag ──
+// ── Drag + persist position ──
 
 $("#pill").addEventListener("mousedown", async (e) => {
-  // Only drag from the pill body, not buttons
   if (e.target.closest("button") || e.target.closest("canvas")) return;
   try {
     await invoke("start_drag");
+    // Save position after drag ends (small delay for the window to settle)
+    setTimeout(savePillPosition, 200);
   } catch (_) {}
 });
+
+async function savePillPosition() {
+  try {
+    const { getCurrentWebviewWindow } = window.__TAURI__.webviewWindow;
+    const win = getCurrentWebviewWindow();
+    const pos = await win.outerPosition();
+    await invoke("save_pill_position", { x: pos.x, y: pos.y });
+  } catch (_) {}
+}
 
 setState("idle");
 checkAccessibility();

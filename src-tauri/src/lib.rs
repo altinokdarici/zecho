@@ -219,6 +219,14 @@ fn load_whisper_model_cmd(model_id: String, state: tauri::State<'_, AppState>) -
 }
 
 #[tauri::command]
+fn save_pill_position(x: i32, y: i32, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut settings = state.settings.lock().map_err(|e| e.to_string())?;
+    settings.pill_x = Some(x);
+    settings.pill_y = Some(y);
+    settings.save()
+}
+
+#[tauri::command]
 fn start_drag(window: tauri::WebviewWindow) -> Result<(), String> {
     window.start_dragging().map_err(|e| e.to_string())
 }
@@ -294,9 +302,21 @@ fn create_tray_icon(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> 
     Ok(())
 }
 
-fn position_pill(app: &tauri::App) {
+fn position_pill(app: &tauri::App, state: &AppState) {
     if let Some(window) = app.get_webview_window("pill") {
-        if let Ok(Some(monitor)) = window.current_monitor() {
+        let settings = state.settings.lock().ok();
+        let saved = settings.as_ref().and_then(|s| {
+            match (s.pill_x, s.pill_y) {
+                (Some(x), Some(y)) => Some((x, y)),
+                _ => None,
+            }
+        });
+
+        if let Some((x, y)) = saved {
+            window
+                .set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }))
+                .ok();
+        } else if let Ok(Some(monitor)) = window.current_monitor() {
             let screen = monitor.size();
             let scale = monitor.scale_factor();
             let win_w = (280.0 * scale) as i32;
@@ -379,6 +399,7 @@ pub fn run() {
             stop_recording,
             cancel_recording,
             get_audio_level,
+            save_pill_position,
             start_drag,
             get_history,
             copy_history_item,
@@ -397,7 +418,8 @@ pub fn run() {
         ])
         .setup(|app| {
             create_tray_icon(app).ok();
-            position_pill(app);
+            let app_state: tauri::State<'_, AppState> = app.state();
+            position_pill(app, &app_state);
             register_global_shortcut(app);
             hotkey::start_fn_key_listener(app.handle().clone());
             Ok(())
