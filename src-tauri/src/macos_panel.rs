@@ -78,6 +78,9 @@ pub fn make_panel(app: &tauri::App) {
     );
     panel.set_hides_on_deactivate(false);
     panel.set_works_when_modal(true);
+    panel.set_corner_radius(0.0);
+    panel.set_opaque(false);
+    panel.set_has_shadow(false);
     panel.set_event_handler(Some(handler.as_ref()));
 
     println!("Pill converted to NSPanel with hover activation");
