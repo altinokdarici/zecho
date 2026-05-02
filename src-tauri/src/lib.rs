@@ -302,39 +302,45 @@ fn create_tray_icon(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> 
     Ok(())
 }
 
-fn position_pill(app: &tauri::App, state: &AppState) {
-    if let Some(window) = app.get_webview_window("pill") {
-        let monitor = match window.current_monitor() {
+fn position_pill_window(window: &tauri::WebviewWindow, state: &AppState) {
+    let monitor = match window.primary_monitor() {
+        Ok(Some(m)) => m,
+        _ => match window.current_monitor() {
             Ok(Some(m)) => m,
             _ => return,
-        };
-        let screen = monitor.size();
-        let scale = monitor.scale_factor();
-        let win_h = window.outer_size().map(|s| s.height as i32).unwrap_or((480.0 * scale) as i32);
-        let win_w = window.outer_size().map(|s| s.width as i32).unwrap_or((280.0 * scale) as i32);
+        },
+    };
+    let screen = monitor.size();
+    let scale = monitor.scale_factor();
+    let win_h = window.outer_size().map(|s| s.height as i32).unwrap_or((480.0 * scale) as i32);
+    let win_w = window.outer_size().map(|s| s.width as i32).unwrap_or((280.0 * scale) as i32);
 
-        let settings = state.settings.lock().ok();
-        let saved = settings.as_ref().and_then(|s| {
-            match (s.pill_x_pct, s.pill_y_pct) {
-                (Some(xp), Some(yp)) => Some((xp, yp)),
-                _ => None,
+    let settings = state.settings.lock().ok();
+    let saved = settings.as_ref().and_then(|s| {
+        match (s.pill_x_pct, s.pill_y_pct) {
+            (Some(xp), Some(yp)) if xp >= 0.0 && xp <= 1.5 && yp >= 0.0 && yp <= 1.5 => {
+                Some((xp, yp))
             }
-        });
+            _ => None,
+        }
+    });
 
-        let (x, y) = if let Some((x_pct, y_pct)) = saved {
-            let bottom_x = (x_pct * screen.width as f64) as i32;
-            let bottom_y = (y_pct * screen.height as f64) as i32;
-            (bottom_x, bottom_y - win_h)
-        } else {
-            let x = (screen.width as i32 - win_w) / 2;
-            let y = screen.height as i32 - win_h - (60.0 * scale) as i32;
-            (x, y)
-        };
+    let (x, y) = if let Some((x_pct, y_pct)) = saved {
+        let x = (x_pct * screen.width as f64) as i32;
+        let bottom_y = (y_pct * screen.height as f64) as i32;
+        (x, bottom_y - win_h)
+    } else {
+        let x = (screen.width as i32 - win_w) / 2;
+        let y = screen.height as i32 - win_h - (60.0 * scale) as i32;
+        (x, y)
+    };
 
-        window
-            .set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }))
-            .ok();
-    }
+    println!("Positioning pill: screen={}x{} win={}x{} saved={:?} -> ({}, {})",
+        screen.width, screen.height, win_w, win_h, saved, x, y);
+
+    window
+        .set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }))
+        .ok();
 }
 
 fn register_global_shortcut(app: &tauri::App) {
@@ -435,10 +441,18 @@ pub fn run() {
         ])
         .setup(|app| {
             create_tray_icon(app).ok();
-            let app_state: tauri::State<'_, AppState> = app.state();
-            position_pill(app, &app_state);
             register_global_shortcut(app);
             hotkey::start_fn_key_listener(app.handle().clone());
+
+            // Delay positioning so the window is fully created first
+            let handle = app.handle().clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(300));
+                let state: tauri::State<'_, AppState> = handle.state();
+                if let Some(window) = handle.get_webview_window("pill") {
+                    position_pill_window(&window, &state);
+                }
+            });
             Ok(())
         })
         .run(tauri::generate_context!())
