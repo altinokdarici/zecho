@@ -55,38 +55,27 @@ pub const AVAILABLE_MODELS: &[ModelInfo] = &[
         url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin",
         model_type: ModelType::Whisper,
     },
-    // Cleanup models — Qwen 3 family
+    // Cleanup models
     ModelInfo {
-        id: "qwen3-0.6b",
-        name: "Fast",
-        description: "Quick cleanup, lower accuracy. Best for short phrases.",
-        size_mb: 378,
-        quality_score: 6,
-        speed_score: 10,
-        filename: "Qwen3-0.6B-Q4_K_M.gguf",
-        url: "https://huggingface.co/unsloth/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q4_K_M.gguf",
-        model_type: ModelType::Cleanup,
-    },
-    ModelInfo {
-        id: "qwen3-1.7b",
+        id: "qwen25-1.5b",
         name: "Balanced",
-        description: "Good speed and quality for everyday use.",
-        size_mb: 1030,
-        quality_score: 7,
+        description: "Recommended — reliable cleanup with good speed.",
+        size_mb: 986,
+        quality_score: 8,
         speed_score: 8,
-        filename: "Qwen3-1.7B-Q4_K_M.gguf",
-        url: "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf",
+        filename: "Qwen2.5-1.5B-Instruct-Q4_K_M.gguf",
+        url: "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf",
         model_type: ModelType::Cleanup,
     },
     ModelInfo {
-        id: "qwen3-4b-instruct",
+        id: "qwen25-3b",
         name: "Quality",
-        description: "Recommended — best at handling corrections and nuance.",
-        size_mb: 2330,
+        description: "Best at handling corrections and nuance. Slower.",
+        size_mb: 1940,
         quality_score: 9,
-        speed_score: 7,
-        filename: "Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
-        url: "https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+        speed_score: 6,
+        filename: "Qwen2.5-3B-Instruct-Q4_K_M.gguf",
+        url: "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf",
         model_type: ModelType::Cleanup,
     },
 ];
@@ -115,7 +104,7 @@ pub fn default_whisper_model() -> &'static ModelInfo {
 }
 
 pub fn default_cleanup_model() -> &'static ModelInfo {
-    get_model("qwen3-4b-instruct").unwrap()
+    get_model("qwen25-1.5b").unwrap()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

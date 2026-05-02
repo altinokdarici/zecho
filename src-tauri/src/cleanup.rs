@@ -28,7 +28,7 @@ impl TextCleaner {
         let backend =
             LlamaBackend::init().map_err(|e| format!("Failed to init llama backend: {}", e))?;
 
-        let model_params = LlamaModelParams::default();
+        let model_params = LlamaModelParams::default().with_n_gpu_layers(0);
         let model = LlamaModel::load_from_file(&backend, model_path, &model_params)
             .map_err(|e| format!("Failed to load cleanup model: {}", e))?;
 
