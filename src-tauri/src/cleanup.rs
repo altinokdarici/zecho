@@ -48,34 +48,36 @@ impl TextCleaner {
         custom_prompt: Option<&str>,
     ) -> String {
         let style_instruction = match style {
-            WritingStyle::Formal => {
-                "Use proper capitalization and full punctuation. Write in complete, well-structured sentences."
-            }
-            WritingStyle::Casual => {
-                "Use standard capitalization but lighter punctuation. Conversational tone."
-            }
-            WritingStyle::VeryCasual => {
-                "Use lowercase throughout. Minimal punctuation. Relaxed, like a text message."
-            }
+            WritingStyle::Formal => "Style: proper capitalization, full punctuation, complete sentences.",
+            WritingStyle::Casual => "Style: standard caps, lighter punctuation, conversational.",
+            WritingStyle::VeryCasual => "Style: all lowercase, minimal punctuation, like a text message.",
         };
 
         let level_instruction = match level {
-            CleanupLevel::None => "Only apply the writing style formatting. Keep everything else as-is.",
-            CleanupLevel::Light => "Remove filler words (um, uh, like, you know). Fix basic grammar.",
-            CleanupLevel::Medium => {
-                "Remove filler words. Fix grammar. Edit for clarity. If the speaker corrects themselves, keep only the correction."
-            }
-            CleanupLevel::High => {
-                "Rewrite for brevity and polish. Remove all filler and redundancy. Keep only corrections. Tighten the language."
-            }
+            CleanupLevel::None => "Do not change the words. Only apply formatting.",
+            CleanupLevel::Light => "Remove filler words (um, uh, like, you know, so, basically). Fix grammar. Keep original phrasing.",
+            CleanupLevel::Medium => "Remove filler words. Fix grammar. Resolve self-corrections. Edit for clarity and conciseness.",
+            CleanupLevel::High => "Remove all filler. Resolve all self-corrections. Rewrite for maximum brevity and polish while preserving meaning.",
         };
 
         let custom = custom_prompt
-            .map(|p| format!("\n{}", p))
+            .map(|p| format!("\n\nAdditional instructions: {}", p))
             .unwrap_or_default();
 
         format!(
-            "<|im_start|>system\nYou clean up voice transcriptions. Rules:\n- {}\n- {}\n- Do NOT add information that wasn't spoken\n- Return ONLY the cleaned text, nothing else{}<|im_end|>\n<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant\n",
+            "<|im_start|>system\nYou are a voice transcription editor. Your ONLY job is to clean up spoken text into polished written text.\n\n\
+            CRITICAL RULES:\n\
+            1. SELF-CORRECTIONS: When the speaker changes their mind, KEEP ONLY THE FINAL VERSION. Examples:\n\
+               - \"I want red, no actually purple\" -> \"I want purple\"\n\
+               - \"Let's meet Monday, wait, Tuesday\" -> \"Let's meet Tuesday\"\n\
+               - \"The background should be green, uhhh actually purple\" -> \"The background should be purple\"\n\
+               - \"Send it to John, I mean Sarah\" -> \"Send it to Sarah\"\n\
+            2. FILLER WORDS: Remove um, uh, like, you know, so, basically, actually (when used as filler)\n\
+            3. PRESERVE MEANING: Never add information. Never change the speaker's intent.\n\
+            4. OUTPUT: Return ONLY the cleaned text. No explanations, no quotes, no prefixes.\n\n\
+            {}\n{}{}<|im_end|>\n\
+            <|im_start|>user\n{}<|im_end|>\n\
+            <|im_start|>assistant\n",
             style_instruction, level_instruction, custom, raw_text
         )
     }
@@ -187,8 +189,8 @@ impl TextCleaner {
 
     fn basic_cleanup(text: &str, style: &WritingStyle) -> String {
         let fillers = [
-            " um ", " uh ", " like, ", " you know, ", " basically, ", " actually, ",
-            " um, ", " uh, ",
+            " um ", " uh ", " like, ", " you know, ", " basically, ",
+            " um, ", " uh, ", " uhh ", " uhh, ", " umm ", " umm, ",
         ];
         let mut result = format!(" {} ", text);
         for filler in &fillers {
@@ -196,6 +198,24 @@ impl TextCleaner {
                 result = result.replacen(filler, " ", 1);
             }
         }
+
+        // Basic self-correction: "X, actually Y" / "X, no Y" / "X, I mean Y"
+        let correction_patterns = [
+            ", actually ", ", no actually ", ", no ", ", wait, ", ", I mean ",
+            ". Actually, ", ". No, ", ". Wait, ",
+        ];
+        for pattern in &correction_patterns {
+            if let Some(pos) = result.rfind(pattern) {
+                let before_correction = &result[..pos];
+                let after_correction = &result[pos + pattern.len()..];
+                if let Some(sentence_start) = before_correction.rfind(". ") {
+                    result = format!("{}. {}", &before_correction[..sentence_start], after_correction);
+                } else {
+                    result = after_correction.to_string();
+                }
+            }
+        }
+
         let result = result.split_whitespace().collect::<Vec<_>>().join(" ");
         Self::apply_style_only(&result, style)
     }

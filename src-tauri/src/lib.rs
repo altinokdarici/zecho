@@ -357,18 +357,28 @@ fn init_models(state: &AppState) {
         eprintln!("Whisper model not found. Run: scripts/download-models.sh");
     }
 
-    // Load cleanup model
-    let cleanup_model = models::default_cleanup_model();
-    let cleanup_path = models::model_path(cleanup_model);
-    if cleanup_path.exists() {
-        if let Ok(mut c) = state.cleaner.lock() {
-            match c.load_model(&cleanup_path) {
-                Ok(()) => println!("Cleanup model loaded: {}", cleanup_model.name),
-                Err(e) => eprintln!("Failed to load cleanup model: {}", e),
+    // Load cleanup model — try default first, then fall back to any available
+    let cleanup_candidates = ["qwen3-4b-instruct", "qwen3-1.7b", "qwen3-0.6b"];
+    let mut loaded_cleanup = false;
+    for id in &cleanup_candidates {
+        if let Some(info) = models::get_model(id) {
+            let path = models::model_path(info);
+            if path.exists() {
+                if let Ok(mut c) = state.cleaner.lock() {
+                    match c.load_model(&path) {
+                        Ok(()) => {
+                            println!("Cleanup model loaded: {}", info.name);
+                            loaded_cleanup = true;
+                            break;
+                        }
+                        Err(e) => eprintln!("Failed to load {}: {}", info.name, e),
+                    }
+                }
             }
         }
-    } else {
-        eprintln!("Cleanup model not available — using basic text cleanup. Download via Settings > Models.");
+    }
+    if !loaded_cleanup {
+        eprintln!("No cleanup model available — using basic text cleanup. Download via Settings > Models.");
     }
 }
 
