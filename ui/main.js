@@ -239,10 +239,8 @@ function toggleHistory() {
   if (historyVisible) {
     panel.classList.remove("hidden");
     renderHistory();
-    resizeWindow(420);
   } else {
     panel.classList.add("hidden");
-    resizeWindow(56);
   }
 }
 
@@ -340,30 +338,6 @@ $("#pill").addEventListener("mousedown", async (e) => {
 // Keep the window small (just the pill) when idle. Expand when history opens.
 // This avoids transparent area mouse issues — the window IS the pill.
 
-async function resizeWindow(height) {
-  try {
-    const win = window.__TAURI__.webviewWindow.getCurrentWebviewWindow();
-    const pos = await win.outerPosition();
-    const size = await win.outerSize();
-    const scaledHeight = Math.round(height * window.devicePixelRatio);
-    const bottomY = pos.y + size.height;
-
-    console.log(`resizeWindow: ${size.width}x${size.height} -> ${size.width}x${scaledHeight}, dpr=${window.devicePixelRatio}`);
-
-    await win.setSize(new window.__TAURI__.dpi.PhysicalSize(size.width, scaledHeight));
-    await new Promise((r) => setTimeout(r, 50));
-
-    const newSize = await win.outerSize();
-    console.log(`resizeWindow: actual size after set: ${newSize.width}x${newSize.height}`);
-
-    await win.setPosition(new window.__TAURI__.dpi.PhysicalPosition(pos.x, bottomY - scaledHeight));
-  } catch (err) {
-    console.error("Resize error:", err);
-  }
-}
-
-// Start small
-resizeWindow(56);
 
 setState("idle");
 checkAccessibility();

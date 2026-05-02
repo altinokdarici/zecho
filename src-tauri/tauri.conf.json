@@ -13,7 +13,7 @@
         "label": "pill",
         "title": "Zecho",
         "width": 280,
-        "height": 56,
+        "height": 420,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,
