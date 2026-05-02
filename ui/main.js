@@ -348,10 +348,14 @@ async function resizeWindow(height) {
     const scaledHeight = Math.round(height * window.devicePixelRatio);
     const bottomY = pos.y + size.height;
 
-    // Resize first, then reposition so the bottom edge stays anchored
+    console.log(`resizeWindow: ${size.width}x${size.height} -> ${size.width}x${scaledHeight}, dpr=${window.devicePixelRatio}`);
+
     await win.setSize(new window.__TAURI__.dpi.PhysicalSize(size.width, scaledHeight));
-    // Small delay to let the window manager process the resize
     await new Promise((r) => setTimeout(r, 50));
+
+    const newSize = await win.outerSize();
+    console.log(`resizeWindow: actual size after set: ${newSize.width}x${newSize.height}`);
+
     await win.setPosition(new window.__TAURI__.dpi.PhysicalPosition(pos.x, bottomY - scaledHeight));
   } catch (err) {
     console.error("Resize error:", err);

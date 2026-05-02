@@ -17,12 +17,13 @@
 
 html, body {
   background: transparent;
-  overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
   color: var(--text);
   -webkit-user-select: none;
   user-select: none;
   cursor: default;
+  height: 100%;
+  overflow: hidden;
 }
 
 #app {
@@ -30,9 +31,8 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
-  min-height: 100vh;
+  height: 100vh;
   padding: 0 8px 4px;
-  overflow: hidden;
 }
 
 /* ── Pill ── */
@@ -308,7 +308,8 @@ html, body {
 #history-panel {
   width: 100%;
   max-width: 264px;
-  max-height: 340px;
+  flex: 1;
+  min-height: 0;
   background: rgba(28, 28, 30, 0.98);
   backdrop-filter: blur(40px);
   -webkit-backdrop-filter: blur(40px);
