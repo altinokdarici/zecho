@@ -3,6 +3,7 @@ mod audio;
 mod cleanup;
 mod history;
 mod hotkey;
+mod macos_panel;
 mod models;
 mod settings;
 mod transcribe;
@@ -472,6 +473,11 @@ pub fn run() {
             create_tray_icon(app).ok();
             register_global_shortcut(app);
             hotkey::start_fn_key_listener(app.handle().clone());
+
+            // Make the pill window a non-activating panel (receives mouse without stealing focus)
+            if let Some(window) = app.get_webview_window("pill") {
+                macos_panel::make_panel(&window);
+            }
 
             // Start cleanup worker thread — loads model and processes requests via channel
             let cleanup_handle = app.handle().clone();
