@@ -334,5 +334,19 @@ $("#pill").addEventListener("mousedown", async (e) => {
   } catch (_) {}
 });
 
+// ── Click-through transparent areas ──
+// setIgnoreCursorEvents with forward=true passes events through to apps
+// behind but still delivers them to the webview, so hover/click on the
+// pill works while the transparent area doesn't steal focus.
+
+(async () => {
+  try {
+    const win = window.__TAURI__.webviewWindow.getCurrentWebviewWindow();
+    await win.setIgnoreCursorEvents(true, { forward: true });
+  } catch (err) {
+    console.error("Cursor events setup error:", err);
+  }
+})();
+
 setState("idle");
 checkAccessibility();
