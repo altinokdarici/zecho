@@ -36,8 +36,8 @@ pub struct Settings {
     pub writing_style: WritingStyle,
     pub cleanup_level: CleanupLevel,
     pub custom_prompt: Option<String>,
-    pub pill_x: Option<i32>,
-    pub pill_y: Option<i32>,
+    pub pill_x_pct: Option<f64>,
+    pub pill_y_pct: Option<f64>,
     #[serde(skip)]
     pub(crate) path: PathBuf,
 }
@@ -51,8 +51,8 @@ impl Default for Settings {
             writing_style: WritingStyle::default(),
             cleanup_level: CleanupLevel::default(),
             custom_prompt: None,
-            pill_x: None,
-            pill_y: None,
+            pill_x_pct: None,
+            pill_y_pct: None,
             path: PathBuf::new(),
         }
     }

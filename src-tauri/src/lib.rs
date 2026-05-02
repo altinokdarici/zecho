@@ -219,10 +219,10 @@ fn load_whisper_model_cmd(model_id: String, state: tauri::State<'_, AppState>) -
 }
 
 #[tauri::command]
-fn save_pill_position(x: i32, y: i32, state: tauri::State<'_, AppState>) -> Result<(), String> {
+fn save_pill_position(x_pct: f64, y_pct: f64, state: tauri::State<'_, AppState>) -> Result<(), String> {
     let mut settings = state.settings.lock().map_err(|e| e.to_string())?;
-    settings.pill_x = Some(x);
-    settings.pill_y = Some(y);
+    settings.pill_x_pct = Some(x_pct);
+    settings.pill_y_pct = Some(y_pct);
     settings.save()
 }
 
@@ -304,32 +304,36 @@ fn create_tray_icon(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> 
 
 fn position_pill(app: &tauri::App, state: &AppState) {
     if let Some(window) = app.get_webview_window("pill") {
+        let monitor = match window.current_monitor() {
+            Ok(Some(m)) => m,
+            _ => return,
+        };
+        let screen = monitor.size();
+        let scale = monitor.scale_factor();
+        let win_h = window.outer_size().map(|s| s.height as i32).unwrap_or((480.0 * scale) as i32);
+        let win_w = window.outer_size().map(|s| s.width as i32).unwrap_or((280.0 * scale) as i32);
+
         let settings = state.settings.lock().ok();
         let saved = settings.as_ref().and_then(|s| {
-            match (s.pill_x, s.pill_y) {
-                (Some(x), Some(y)) => Some((x, y)),
+            match (s.pill_x_pct, s.pill_y_pct) {
+                (Some(xp), Some(yp)) => Some((xp, yp)),
                 _ => None,
             }
         });
 
-        if let Some((x, bottom_y)) = saved {
-            // pill_y is saved as the bottom edge; convert to top-left
-            let win_h = window.outer_size().map(|s| s.height as i32).unwrap_or(480);
-            let y = bottom_y - win_h;
-            window
-                .set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }))
-                .ok();
-        } else if let Ok(Some(monitor)) = window.current_monitor() {
-            let screen = monitor.size();
-            let scale = monitor.scale_factor();
-            let win_w = (280.0 * scale) as i32;
-            let win_h = (480.0 * scale) as i32;
+        let (x, y) = if let Some((x_pct, y_pct)) = saved {
+            let bottom_x = (x_pct * screen.width as f64) as i32;
+            let bottom_y = (y_pct * screen.height as f64) as i32;
+            (bottom_x, bottom_y - win_h)
+        } else {
             let x = (screen.width as i32 - win_w) / 2;
             let y = screen.height as i32 - win_h - (60.0 * scale) as i32;
-            window
-                .set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }))
-                .ok();
-        }
+            (x, y)
+        };
+
+        window
+            .set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }))
+            .ok();
     }
 }
 

@@ -324,11 +324,17 @@ $("#pill").addEventListener("mousedown", async (e) => {
 async function savePillPosition() {
   try {
     const { getCurrentWebviewWindow } = window.__TAURI__.webviewWindow;
+    const { currentMonitor } = window.__TAURI__.window;
     const win = getCurrentWebviewWindow();
     const pos = await win.outerPosition();
     const size = await win.outerSize();
-    // Save the bottom-left corner so restore puts the pill where it visually was
-    await invoke("save_pill_position", { x: pos.x, y: pos.y + size.height });
+    const monitor = await currentMonitor();
+    if (!monitor) return;
+    const sw = monitor.size.width;
+    const sh = monitor.size.height;
+    const xPct = pos.x / sw;
+    const yPct = (pos.y + size.height) / sh;
+    await invoke("save_pill_position", { xPct, yPct });
   } catch (_) {}
 }
 
