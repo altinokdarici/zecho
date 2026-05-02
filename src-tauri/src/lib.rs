@@ -423,29 +423,10 @@ fn init_models(state: &AppState) {
         eprintln!("Whisper model not found. Run: scripts/download-models.sh");
     }
 
-    // Load cleanup model — try default first, then fall back to any available
-    let cleanup_candidates = ["qwen25-1.5b", "qwen25-3b"];
-    let mut loaded_cleanup = false;
-    for id in &cleanup_candidates {
-        if let Some(info) = models::get_model(id) {
-            let path = models::model_path(info);
-            if path.exists() {
-                if let Ok(mut c) = state.cleaner.lock() {
-                    match c.load_model(&path) {
-                        Ok(()) => {
-                            println!("Cleanup model loaded: {}", info.name);
-                            loaded_cleanup = true;
-                            break;
-                        }
-                        Err(e) => eprintln!("Failed to load {}: {}", info.name, e),
-                    }
-                }
-            }
-        }
-    }
-    if !loaded_cleanup {
-        eprintln!("No cleanup model available — using basic text cleanup. Download via Settings > Models.");
-    }
+    // Cleanup model loading disabled — llama-cpp-2 crashes with SIGBUS on mmap.
+    // Using basic text cleanup until we fix the llama.cpp integration.
+    // TODO: Try candle or a subprocess-based approach instead.
+    eprintln!("Cleanup model: using basic text cleanup (LLM integration in progress)");
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
