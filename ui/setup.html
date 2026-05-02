@@ -162,10 +162,16 @@
     .action-btn.primary {
       background: var(--accent);
       color: #fff;
+      cursor: pointer;
     }
 
-    .action-btn.primary:hover {
+    .action-btn.primary:hover:not(:disabled) {
       background: #7d6ef0;
+      transform: translateY(-1px);
+    }
+
+    .action-btn.primary:active:not(:disabled) {
+      transform: translateY(0);
     }
 
     .action-btn.primary:disabled {
