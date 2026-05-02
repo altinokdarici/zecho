@@ -262,6 +262,13 @@ fn open_accessibility_settings() {
 }
 
 #[tauri::command]
+fn start_fn_listener(app: tauri::AppHandle) {
+    if accessibility::is_accessibility_enabled() {
+        hotkey::start_fn_key_listener(app);
+    }
+}
+
+#[tauri::command]
 fn check_microphone() -> bool {
     accessibility::is_microphone_enabled()
 }
@@ -557,6 +564,7 @@ pub fn run() {
             load_whisper_model_cmd,
             check_accessibility,
             open_accessibility_settings,
+            start_fn_listener,
             check_microphone,
             open_mic_settings,
             check_setup,
@@ -568,14 +576,12 @@ pub fn run() {
         .setup(|app| {
             create_tray_icon(app).ok();
             register_global_shortcut(app);
-            hotkey::start_fn_key_listener(app.handle().clone());
-
-            // Convert pill to NSPanel (receives mouse without stealing focus)
             macos_panel::make_panel(app);
 
-            // Prompt for accessibility on launch if not granted
-            if !accessibility::is_accessibility_enabled() {
-                accessibility::prompt_accessibility();
+            // Only start FN key listener if accessibility is already granted
+            // Otherwise, FRE will guide the user to enable it
+            if accessibility::is_accessibility_enabled() {
+                hotkey::start_fn_key_listener(app.handle().clone());
             }
 
             // Show setup window if anything is missing

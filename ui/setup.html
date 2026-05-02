@@ -378,6 +378,7 @@
         state.accessibility = await invoke("check_accessibility");
         if (state.accessibility) {
           clearInterval(poll);
+          await invoke("start_fn_listener");
           updateUI();
         }
       }, 2000);
