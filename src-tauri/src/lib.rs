@@ -517,14 +517,17 @@ fn register_global_shortcut(app: &tauri::App) {
     }).ok();
 }
 
-fn init_models(state: &AppState) {
-    let whisper_model = models::default_whisper_model();
-    let whisper_path = models::model_path(whisper_model);
-    if whisper_path.exists() {
-        if let Ok(mut t) = state.transcriber.lock() {
-            t.load_model(&whisper_path).ok();
+fn init_models_async(app_handle: tauri::AppHandle) {
+    std::thread::spawn(move || {
+        let state = app_handle.state::<AppState>();
+        let whisper_model = models::default_whisper_model();
+        let whisper_path = models::model_path(whisper_model);
+        if whisper_path.exists() {
+            if let Ok(mut t) = state.transcriber.lock() {
+                t.load_model(&whisper_path).ok();
+            }
         }
-    }
+    });
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -543,7 +546,7 @@ pub fn run() {
         settings: Mutex::new(Settings::load(&data_dir)),
     };
 
-    init_models(&state);
+    // Models loaded async in setup — see init_models_async
 
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -583,6 +586,7 @@ pub fn run() {
             create_tray_icon(app).ok();
             register_global_shortcut(app);
             macos_panel::make_panel(app);
+            init_models_async(app.handle().clone());
 
             // Only start FN key listener if accessibility is already granted
             // Otherwise, FRE will guide the user to enable it
