@@ -24,8 +24,8 @@ pub const AVAILABLE_MODELS: &[ModelInfo] = &[
     // Whisper models
     ModelInfo {
         id: "whisper-tiny-en",
-        name: "Whisper Tiny (English)",
-        description: "Fastest transcription, good for short phrases",
+        name: "Fast",
+        description: "Quickest transcription. Good for short, clear speech.",
         size_mb: 75,
         quality_score: 6,
         speed_score: 10,
@@ -35,8 +35,8 @@ pub const AVAILABLE_MODELS: &[ModelInfo] = &[
     },
     ModelInfo {
         id: "whisper-base-en",
-        name: "Whisper Base (English)",
-        description: "Recommended — good balance of speed and accuracy",
+        name: "Balanced",
+        description: "Recommended — accurate and fast for everyday use.",
         size_mb: 142,
         quality_score: 8,
         speed_score: 8,
@@ -46,8 +46,8 @@ pub const AVAILABLE_MODELS: &[ModelInfo] = &[
     },
     ModelInfo {
         id: "whisper-small-en",
-        name: "Whisper Small (English)",
-        description: "High accuracy, slower on older hardware",
+        name: "Accurate",
+        description: "Best accuracy. Uses more memory and is slower.",
         size_mb: 466,
         quality_score: 9,
         speed_score: 5,
@@ -58,8 +58,8 @@ pub const AVAILABLE_MODELS: &[ModelInfo] = &[
     // Cleanup models — Qwen 3 family
     ModelInfo {
         id: "qwen3-0.6b",
-        name: "Qwen 3 0.6B",
-        description: "Fastest — good for simple text",
+        name: "Fast",
+        description: "Quick cleanup, lower accuracy. Best for short phrases.",
         size_mb: 378,
         quality_score: 6,
         speed_score: 10,
@@ -69,8 +69,8 @@ pub const AVAILABLE_MODELS: &[ModelInfo] = &[
     },
     ModelInfo {
         id: "qwen3-1.7b",
-        name: "Qwen 3 1.7B",
-        description: "Good balance of speed and quality",
+        name: "Balanced",
+        description: "Good speed and quality for everyday use.",
         size_mb: 1030,
         quality_score: 7,
         speed_score: 8,
@@ -80,8 +80,8 @@ pub const AVAILABLE_MODELS: &[ModelInfo] = &[
     },
     ModelInfo {
         id: "qwen3-4b-instruct",
-        name: "Qwen 3 4B Instruct",
-        description: "Recommended — best instruction following, non-thinking mode",
+        name: "Quality",
+        description: "Recommended — best at handling corrections and nuance.",
         size_mb: 2330,
         quality_score: 9,
         speed_score: 7,
