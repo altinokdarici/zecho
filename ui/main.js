@@ -183,10 +183,7 @@ async function renderHistory() {
     list.innerHTML = items
       .map(
         (item) => {
-          const changed = item.raw_text && item.raw_text !== item.text;
-          const rawHtml = changed
-            ? `<div class="history-raw">${escapeHtml(item.raw_text)}</div>`
-            : "";
+          const rawHtml = "";
           const hasTimings = item.transcribe_ms > 0 || item.cleanup_ms > 0;
           const timingHtml = hasTimings
             ? `<span class="history-timing">STT ${(item.transcribe_ms / 1000).toFixed(1)}s + AI ${(item.cleanup_ms / 1000).toFixed(1)}s</span>`
