@@ -23,44 +23,77 @@ impl TextCleaner {
         let path = model_path.to_path_buf();
         let (tx, rx) = mpsc::channel::<CleanupRequest>();
 
-        // Run LLM inference in a subprocess to avoid backend conflicts with whisper.
-        // The test_llm binary is compiled alongside zecho and handles all llama.cpp calls.
+        // Run LLM inference in a persistent subprocess to avoid backend conflicts with whisper.
+        // The test_llm binary stays alive and accepts prompts via stdin (one per line).
         std::thread::spawn(move || {
-            println!("Cleanup worker: subprocess mode, model at {}", path.display());
+            use std::io::{BufRead, BufReader, Write};
+            use std::process::{Command, Stdio};
+
+            let exe = match std::env::current_exe() {
+                Ok(e) => e,
+                Err(e) => {
+                    eprintln!("Cleanup worker: can't find exe: {}", e);
+                    return;
+                }
+            };
+            let test_llm = exe.parent().unwrap().join("test_llm");
+            if !test_llm.exists() {
+                eprintln!("Cleanup worker: test_llm not found at {}", test_llm.display());
+                return;
+            }
+
+            println!("Cleanup worker: starting persistent subprocess...");
+            let mut child = match Command::new(&test_llm)
+                .arg(path.to_str().unwrap())
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::inherit())
+                .spawn()
+            {
+                Ok(c) => c,
+                Err(e) => {
+                    eprintln!("Cleanup worker: failed to spawn: {}", e);
+                    return;
+                }
+            };
+
+            let mut stdin = child.stdin.take().expect("stdin");
+            let stdout = child.stdout.take().expect("stdout");
+            let mut reader = BufReader::new(stdout);
+
+            println!("Cleanup worker: persistent subprocess ready (model loaded once)");
 
             for req in rx {
-                let result = run_subprocess(&path, &req);
-                let _ = req.reply.send(result);
-            }
-
-            fn run_subprocess(model_path: &std::path::Path, req: &CleanupRequest) -> Result<String, String> {
                 let prompt = build_prompt(&req.raw_text, &req.style, &req.level, req.custom_prompt.as_deref());
+                let escaped = prompt.replace('\n', "\\n");
 
-                // Find the test_llm binary next to the zecho binary
-                let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-                let test_llm = exe.parent().unwrap().join("test_llm");
-                if !test_llm.exists() {
-                    return Err(format!("test_llm binary not found at {}", test_llm.display()));
+                if writeln!(stdin, "{}", escaped).is_err() {
+                    let _ = req.reply.send(Ok(req.raw_text.clone()));
+                    continue;
+                }
+                if stdin.flush().is_err() {
+                    let _ = req.reply.send(Ok(req.raw_text.clone()));
+                    continue;
                 }
 
-                let output = std::process::Command::new(&test_llm)
-                    .arg(model_path.to_str().unwrap())
-                    .arg(&prompt)
-                    .output()
-                    .map_err(|e| format!("Failed to run cleanup subprocess: {}", e))?;
-
-                if !output.status.success() {
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-                    return Err(format!("Cleanup subprocess failed: {}", stderr));
+                let mut response = String::new();
+                match reader.read_line(&mut response) {
+                    Ok(0) | Err(_) => {
+                        let _ = req.reply.send(Ok(req.raw_text.clone()));
+                        continue;
+                    }
+                    Ok(_) => {}
                 }
 
-                let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                if stdout.is_empty() {
-                    Ok(req.raw_text.clone())
+                let result = response.trim().replace("\\n", "\n");
+                if result.is_empty() {
+                    let _ = req.reply.send(Ok(req.raw_text.clone()));
                 } else {
-                    Ok(stdout)
+                    let _ = req.reply.send(Ok(result));
                 }
             }
+
+            let _ = child.kill();
         });
 
         self.sender = Some(tx);
