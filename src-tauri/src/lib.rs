@@ -312,7 +312,10 @@ fn position_pill(app: &tauri::App, state: &AppState) {
             }
         });
 
-        if let Some((x, y)) = saved {
+        if let Some((x, bottom_y)) = saved {
+            // pill_y is saved as the bottom edge; convert to top-left
+            let win_h = window.outer_size().map(|s| s.height as i32).unwrap_or(480);
+            let y = bottom_y - win_h;
             window
                 .set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }))
                 .ok();

@@ -326,7 +326,9 @@ async function savePillPosition() {
     const { getCurrentWebviewWindow } = window.__TAURI__.webviewWindow;
     const win = getCurrentWebviewWindow();
     const pos = await win.outerPosition();
-    await invoke("save_pill_position", { x: pos.x, y: pos.y });
+    const size = await win.outerSize();
+    // Save the bottom-left corner so restore puts the pill where it visually was
+    await invoke("save_pill_position", { x: pos.x, y: pos.y + size.height });
   } catch (_) {}
 }
 
