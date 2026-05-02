@@ -142,6 +142,11 @@
     }
 
     /* Action button */
+    .button-area {
+      flex-shrink: 0;
+      padding: 16px 36px 0;
+    }
+
     .action-btn {
       width: 100%;
       padding: 12px;
@@ -152,7 +157,6 @@
       font-family: inherit;
       cursor: pointer;
       transition: all 0.15s ease;
-      margin-top: 8px;
     }
 
     .action-btn.primary {
@@ -269,7 +273,9 @@
         </div>
       </div>
     </div>
+  </div>
 
+  <div class="button-area">
     <button class="action-btn primary" id="btn-action" disabled>Checking...</button>
   </div>
 

@@ -27,20 +27,16 @@ mod macos {
     }
 
     pub fn is_microphone_enabled() -> bool {
-        unsafe {
-            #[link(name = "AVFoundation", kind = "framework")]
-            extern "C" {}
-
-            // Use AVCaptureDevice authorizationStatus — but simpler: just try to list audio devices
-            // If mic access is denied, cpal won't find input devices
+        // Try to enumerate audio input devices — if mic is denied, this returns no devices
+        match std::panic::catch_unwind(|| {
             use cpal::traits::{DeviceTrait, HostTrait};
             let host = cpal::default_host();
-            if let Some(device) = host.default_input_device() {
-                // If we can get a config, mic is accessible
-                device.default_input_config().is_ok()
-            } else {
-                false
-            }
+            host.default_input_device()
+                .and_then(|d| d.default_input_config().ok())
+                .is_some()
+        }) {
+            Ok(result) => result,
+            Err(_) => false,
         }
     }
 

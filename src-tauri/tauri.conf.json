@@ -26,7 +26,7 @@
         "title": "Welcome to Zecho",
         "url": "setup.html",
         "width": 520,
-        "height": 560,
+        "height": 680,
         "decorations": true,
         "resizable": false,
         "visible": false,
@@ -60,7 +60,8 @@
     ],
     "resources": [],
     "macOS": {
-      "signingIdentity": "Developer ID Application: DAVID BENJAMIN ZEARING (VMGW2V57S7)"
+      "signingIdentity": "Developer ID Application: DAVID BENJAMIN ZEARING (VMGW2V57S7)",
+      "entitlements": "Entitlements.plist"
     }
   },
   "plugins": {
