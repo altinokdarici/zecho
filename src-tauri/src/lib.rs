@@ -302,6 +302,33 @@ fn create_tray_icon(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> 
     Ok(())
 }
 
+fn save_pill_position_from_window(window: &tauri::WebviewWindow, state: &AppState) {
+    let pos = match window.outer_position() {
+        Ok(p) => p,
+        _ => return,
+    };
+    let size = match window.outer_size() {
+        Ok(s) => s,
+        _ => return,
+    };
+    let monitor = match window.current_monitor() {
+        Ok(Some(m)) => m,
+        _ => return,
+    };
+    let screen = monitor.size();
+    if screen.width == 0 || screen.height == 0 {
+        return;
+    }
+    let x_pct = pos.x as f64 / screen.width as f64;
+    let y_pct = (pos.y as f64 + size.height as f64) / screen.height as f64;
+
+    if let Ok(mut settings) = state.settings.lock() {
+        settings.pill_x_pct = Some(x_pct);
+        settings.pill_y_pct = Some(y_pct);
+        settings.save().ok();
+    }
+}
+
 fn position_pill_window(window: &tauri::WebviewWindow, state: &AppState) {
     let monitor = match window.primary_monitor() {
         Ok(Some(m)) => m,
@@ -422,7 +449,6 @@ pub fn run() {
             stop_recording,
             cancel_recording,
             get_audio_level,
-            save_pill_position,
             start_drag,
             get_history,
             copy_history_item,
@@ -446,6 +472,7 @@ pub fn run() {
 
             // Delay positioning so the window is fully created first
             let handle = app.handle().clone();
+            let handle2 = app.handle().clone();
             std::thread::spawn(move || {
                 std::thread::sleep(std::time::Duration::from_millis(300));
                 let state: tauri::State<'_, AppState> = handle.state();
@@ -453,6 +480,18 @@ pub fn run() {
                     position_pill_window(&window, &state);
                 }
             });
+
+            // Listen for window move events to persist position
+            if let Some(window) = app.get_webview_window("pill") {
+                window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::Moved(_) = event {
+                        let state: tauri::State<'_, AppState> = handle2.state();
+                        if let Some(win) = handle2.get_webview_window("pill") {
+                            save_pill_position_from_window(&win, &state);
+                        }
+                    }
+                });
+            }
             Ok(())
         })
         .run(tauri::generate_context!())

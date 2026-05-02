@@ -310,33 +310,14 @@ $("#btn-dismiss-access").addEventListener("click", () => {
   $("#accessibility-prompt").classList.add("hidden");
 });
 
-// ── Drag + persist position ──
+// ── Drag ──
 
 $("#pill").addEventListener("mousedown", async (e) => {
   if (e.target.closest("button") || e.target.closest("canvas")) return;
   try {
     await invoke("start_drag");
-    // Save position after drag ends (small delay for the window to settle)
-    setTimeout(savePillPosition, 200);
   } catch (_) {}
 });
-
-async function savePillPosition() {
-  try {
-    const { getCurrentWebviewWindow } = window.__TAURI__.webviewWindow;
-    const { currentMonitor } = window.__TAURI__.window;
-    const win = getCurrentWebviewWindow();
-    const pos = await win.outerPosition();
-    const size = await win.outerSize();
-    const monitor = await currentMonitor();
-    if (!monitor) return;
-    const sw = monitor.size.width;
-    const sh = monitor.size.height;
-    const xPct = pos.x / sw;
-    const yPct = (pos.y + size.height) / sh;
-    await invoke("save_pill_position", { xPct, yPct });
-  } catch (_) {}
-}
 
 setState("idle");
 checkAccessibility();
