@@ -149,35 +149,33 @@ fn build_prompt(
     custom_prompt: Option<&str>,
 ) -> String {
     let style_instruction = match style {
-        WritingStyle::Formal => "Style: proper capitalization, full punctuation, complete sentences.",
-        WritingStyle::Casual => "Style: standard caps, lighter punctuation, conversational.",
-        WritingStyle::VeryCasual => "Style: all lowercase, minimal punctuation, like a text message.",
+        WritingStyle::Formal => "Formatting: capitalize properly, use full punctuation.",
+        WritingStyle::Casual => "Formatting: capitalize normally, light punctuation.",
+        WritingStyle::VeryCasual => "Formatting: all lowercase, minimal punctuation.",
     };
 
     let level_instruction = match level {
-        CleanupLevel::None => "Do not change the words. Only apply formatting.",
-        CleanupLevel::Light => "Remove filler words (um, uh, like, you know). Fix grammar.",
-        CleanupLevel::Medium => "Remove filler words. Fix grammar. Resolve self-corrections. Edit for clarity.",
-        CleanupLevel::High => "Remove all filler. Resolve all self-corrections. Rewrite for maximum brevity while preserving meaning.",
+        CleanupLevel::None => "Do not change any words. Only fix capitalization and punctuation.",
+        CleanupLevel::Light => "ONLY remove filler words: um, uh, uhh, like, you know, basically, so. Keep ALL other words exactly as spoken.",
+        CleanupLevel::Medium => "Remove filler words. If the speaker corrects themselves (says one thing then changes it), keep only the final version. Keep ALL other words exactly as spoken.",
+        CleanupLevel::High => "Remove filler words. Resolve self-corrections (keep final version only). You may tighten phrasing slightly, but NEVER change the meaning or remove content the speaker intended to say.",
     };
 
     let custom = custom_prompt
-        .map(|p| format!("\n\nAdditional instructions: {}", p))
+        .map(|p| format!("\nExtra: {}", p))
         .unwrap_or_default();
 
     format!(
-        "<|im_start|>system\nYou are a voice transcription editor. Clean up spoken text into polished written text.\n\n\
-        CRITICAL RULES:\n\
-        1. SELF-CORRECTIONS: When the speaker changes their mind, KEEP ONLY THE FINAL VERSION.\n\
-           - \"I want red, no actually purple\" -> \"I want purple\"\n\
-           - \"Let's meet Monday, wait, Tuesday\" -> \"Let's meet Tuesday\"\n\
-           - \"The background should be green, uhhh actually purple\" -> \"The background should be purple\"\n\
-        2. FILLER WORDS: Remove um, uh, like, you know, so, basically\n\
-        3. PRESERVE MEANING: Never add information not spoken.\n\
-        4. OUTPUT: Return ONLY the cleaned text. No explanations.\n\n\
-        {}\n{}{}<|im_end|>\n\
+        "<|im_start|>system\nYou fix voice transcriptions. You must keep the speaker's words and meaning intact.\n\n\
+        RULES:\n\
+        1. {}\n\
+        2. {}\n\
+        3. NEVER add words the speaker didn't say.\n\
+        4. NEVER rephrase or summarize. Keep the speaker's own words.\n\
+        5. NEVER remove content — only remove filler and resolved self-corrections.\n\
+        6. Return ONLY the cleaned text. No explanations, no quotes.{}<|im_end|>\n\
         <|im_start|>user\n{}<|im_end|>\n\
         <|im_start|>assistant\n",
-        style_instruction, level_instruction, custom, raw_text
+        level_instruction, style_instruction, custom, raw_text
     )
 }
