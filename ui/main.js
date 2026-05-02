@@ -343,13 +343,16 @@ $("#pill").addEventListener("mousedown", async (e) => {
 async function resizeWindow(height) {
   try {
     const win = window.__TAURI__.webviewWindow.getCurrentWebviewWindow();
-    const size = await win.outerSize();
     const pos = await win.outerPosition();
+    const size = await win.outerSize();
     const scaledHeight = Math.round(height * window.devicePixelRatio);
-    const newY = pos.y + size.height - scaledHeight;
-    // Move first (anchor bottom), then resize
-    await win.setPosition(new window.__TAURI__.dpi.PhysicalPosition(pos.x, newY));
+    const bottomY = pos.y + size.height;
+
+    // Resize first, then reposition so the bottom edge stays anchored
     await win.setSize(new window.__TAURI__.dpi.PhysicalSize(size.width, scaledHeight));
+    // Small delay to let the window manager process the resize
+    await new Promise((r) => setTimeout(r, 50));
+    await win.setPosition(new window.__TAURI__.dpi.PhysicalPosition(pos.x, bottomY - scaledHeight));
   } catch (err) {
     console.error("Resize error:", err);
   }
