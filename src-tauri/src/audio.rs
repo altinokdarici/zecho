@@ -1,6 +1,6 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
+    atomic::{AtomicBool, AtomicU32, Ordering},
     Arc, Mutex,
 };
 
@@ -11,6 +11,7 @@ pub struct AudioRecorder {
     device_rate: Arc<Mutex<u32>>,
     recording: Arc<AtomicBool>,
     stream_handle: Mutex<Option<cpal::Stream>>,
+    current_rms: Arc<AtomicU32>,
 }
 
 unsafe impl Send for AudioRecorder {}
@@ -23,7 +24,12 @@ impl AudioRecorder {
             device_rate: Arc::new(Mutex::new(WHISPER_SAMPLE_RATE)),
             recording: Arc::new(AtomicBool::new(false)),
             stream_handle: Mutex::new(None),
+            current_rms: Arc::new(AtomicU32::new(0)),
         }
+    }
+
+    pub fn rms_level(&self) -> f32 {
+        f32::from_bits(self.current_rms.load(Ordering::Relaxed))
     }
 
     pub fn start(&self) -> Result<(), String> {
@@ -43,9 +49,11 @@ impl AudioRecorder {
         *self.device_rate.lock().unwrap() = rate;
         self.samples.lock().unwrap().clear();
         self.recording.store(true, Ordering::SeqCst);
+        self.current_rms.store(0, Ordering::SeqCst);
 
         let samples = self.samples.clone();
         let recording = self.recording.clone();
+        let rms = self.current_rms.clone();
 
         let stream = match config.sample_format() {
             cpal::SampleFormat::F32 => device
@@ -56,8 +64,17 @@ impl AudioRecorder {
                             return;
                         }
                         let mut buf = samples.lock().unwrap();
+                        let mut sum_sq: f32 = 0.0;
+                        let mut count: usize = 0;
                         for chunk in data.chunks(channels) {
-                            buf.push(chunk[0]);
+                            let s = chunk[0];
+                            buf.push(s);
+                            sum_sq += s * s;
+                            count += 1;
+                        }
+                        if count > 0 {
+                            let level = (sum_sq / count as f32).sqrt();
+                            rms.store(level.to_bits(), Ordering::Relaxed);
                         }
                     },
                     |err| eprintln!("Audio stream error: {}", err),
@@ -67,6 +84,7 @@ impl AudioRecorder {
             cpal::SampleFormat::I16 => {
                 let samples = self.samples.clone();
                 let recording = self.recording.clone();
+                let rms = self.current_rms.clone();
                 device
                     .build_input_stream(
                         &config.into(),
@@ -75,8 +93,17 @@ impl AudioRecorder {
                                 return;
                             }
                             let mut buf = samples.lock().unwrap();
+                            let mut sum_sq: f32 = 0.0;
+                            let mut count: usize = 0;
                             for chunk in data.chunks(channels) {
-                                buf.push(chunk[0] as f32 / i16::MAX as f32);
+                                let s = chunk[0] as f32 / i16::MAX as f32;
+                                buf.push(s);
+                                sum_sq += s * s;
+                                count += 1;
+                            }
+                            if count > 0 {
+                                let level = (sum_sq / count as f32).sqrt();
+                                rms.store(level.to_bits(), Ordering::Relaxed);
                             }
                         },
                         |err| eprintln!("Audio stream error: {}", err),

@@ -31,6 +31,15 @@ fn start_recording(state: tauri::State<'_, AppState>) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn get_audio_level(state: tauri::State<'_, AppState>) -> f32 {
+    state
+        .recorder
+        .lock()
+        .map(|r| r.rms_level())
+        .unwrap_or(0.0)
+}
+
+#[tauri::command]
 fn stop_recording(state: tauri::State<'_, AppState>, app: tauri::AppHandle) -> Result<String, String> {
     let text = finish_recording(&state)?;
     app.emit("transcription-complete", &text).ok();
@@ -78,7 +87,31 @@ fn finish_recording(state: &AppState) -> Result<String, String> {
     let mut history = state.history.lock().map_err(|e| e.to_string())?;
     history.add(text.clone(), raw_text);
 
+    // Auto-paste if enabled
+    let settings = state.settings.lock().map_err(|e| e.to_string())?;
+    if settings.auto_paste {
+        drop(settings);
+        simulate_paste();
+    }
+
     Ok(text)
+}
+
+fn simulate_paste() {
+    #[cfg(target_os = "macos")]
+    {
+        std::thread::spawn(|| {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            let _ = std::process::Command::new("osascript")
+                .arg("-e")
+                .arg("tell application \"System Events\" to keystroke \"v\" using command down")
+                .output();
+        });
+    }
+    #[cfg(target_os = "windows")]
+    {
+        // TODO: use SendInput API
+    }
 }
 
 #[tauri::command]
@@ -183,6 +216,11 @@ fn load_whisper_model_cmd(model_id: String, state: tauri::State<'_, AppState>) -
     }
     let mut transcriber = state.transcriber.lock().map_err(|e| e.to_string())?;
     transcriber.load_model(&path)
+}
+
+#[tauri::command]
+fn start_drag(window: tauri::WebviewWindow) -> Result<(), String> {
+    window.start_dragging().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -340,6 +378,8 @@ pub fn run() {
             start_recording,
             stop_recording,
             cancel_recording,
+            get_audio_level,
+            start_drag,
             get_history,
             copy_history_item,
             delete_history_item,

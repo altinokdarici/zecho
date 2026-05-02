@@ -27,6 +27,8 @@ function setState(state) {
   }
 }
 
+let barLevels = new Array(16).fill(0);
+
 function startWaveform() {
   const canvas = $("#waveform");
   if (!canvas) return;
@@ -38,19 +40,32 @@ function startWaveform() {
   const totalWidth = bars * barW + (bars - 1) * 2;
   const offsetX = (w - totalWidth) / 2;
 
-  waveformInterval = setInterval(() => {
+  waveformInterval = setInterval(async () => {
+    let level = 0;
+    try {
+      level = await invoke("get_audio_level");
+    } catch (_) {}
+
+    // Normalize: typical speech RMS is 0.01-0.2, scale to 0-1
+    const normalized = Math.min(1, level * 8);
+
+    // Shift bars left and add new level on right
+    barLevels.shift();
+    barLevels.push(normalized);
+
     ctx.clearRect(0, 0, w, h);
     for (let i = 0; i < bars; i++) {
-      const amplitude = 0.2 + Math.random() * 0.8;
-      const barH = amplitude * h * 0.75;
+      const amp = 0.15 + barLevels[i] * 0.85;
+      const barH = amp * h * 0.8;
       const x = offsetX + i * (barW + 2);
       const y = (h - barH) / 2;
-      ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+      const alpha = 0.4 + barLevels[i] * 0.5;
+      ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
       ctx.beginPath();
       ctx.roundRect(x, y, barW, barH, 1.5);
       ctx.fill();
     }
-  }, 70);
+  }, 60);
 }
 
 function stopWaveform() {
@@ -293,6 +308,16 @@ $("#btn-grant-access").addEventListener("click", async () => {
 
 $("#btn-dismiss-access").addEventListener("click", () => {
   $("#accessibility-prompt").classList.add("hidden");
+});
+
+// ── Drag ──
+
+$("#pill").addEventListener("mousedown", async (e) => {
+  // Only drag from the pill body, not buttons
+  if (e.target.closest("button") || e.target.closest("canvas")) return;
+  try {
+    await invoke("start_drag");
+  } catch (_) {}
 });
 
 setState("idle");
