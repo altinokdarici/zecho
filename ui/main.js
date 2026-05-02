@@ -186,7 +186,6 @@ async function renderHistory() {
     list.innerHTML = items
       .map(
         (item) => {
-          const rawHtml = "";
           const hasTimings = item.transcribe_ms > 0 || item.cleanup_ms > 0;
           const timingHtml = hasTimings
             ? `<span class="history-timing">STT ${(item.transcribe_ms / 1000).toFixed(1)}s + AI ${(item.cleanup_ms / 1000).toFixed(1)}s</span>`
@@ -195,13 +194,28 @@ async function renderHistory() {
       <div class="history-item" data-id="${item.id}">
         <div class="history-item-content">
           <div class="history-text">${escapeHtml(item.text)}</div>
-          ${rawHtml}
           <div class="history-meta">
             <span class="history-time">${formatTime(item.created_at)}</span>
             ${timingHtml}
           </div>
         </div>
-        <button class="history-delete" data-delete-id="${item.id}">&times;</button>
+        <button class="history-info" data-info-id="${item.id}">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.2"/>
+            <path d="M8 7v4M8 5.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+      <div class="history-detail hidden" id="detail-${item.id}">
+        <div class="detail-col">
+          <div class="detail-label">Original</div>
+          <div class="detail-text">${escapeHtml(item.raw_text)}</div>
+        </div>
+        <div class="detail-col">
+          <div class="detail-label">Cleaned</div>
+          <div class="detail-text">${escapeHtml(item.text)}</div>
+        </div>
+        ${hasTimings ? `<div class="detail-timing">STT ${(item.transcribe_ms / 1000).toFixed(1)}s &middot; AI ${(item.cleanup_ms / 1000).toFixed(1)}s &middot; Total ${((item.transcribe_ms + item.cleanup_ms) / 1000).toFixed(1)}s</div>` : ""}
       </div>`;
         }
       )
@@ -220,14 +234,13 @@ async function renderHistory() {
       });
     });
 
-    list.querySelectorAll(".history-delete").forEach((btn) => {
-      btn.addEventListener("click", async (e) => {
+    list.querySelectorAll(".history-info").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
         e.stopPropagation();
-        try {
-          await invoke("delete_history_item", { id: btn.dataset.deleteId });
-          renderHistory();
-        } catch (err) {
-          console.error("Delete error:", err);
+        const id = btn.dataset.infoId;
+        const detail = document.getElementById(`detail-${id}`);
+        if (detail) {
+          detail.classList.toggle("hidden");
         }
       });
     });
