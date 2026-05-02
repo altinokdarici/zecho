@@ -347,6 +347,28 @@ html, body {
   flex-shrink: 0;
 }
 
+.history-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.history-header-btn {
+  font-size: 11px;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--text-dim);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 0;
+  transition: color 0.12s ease;
+}
+
+.history-header-btn:hover {
+  color: var(--recording);
+}
+
 #history-header .icon-btn {
   display: flex;
   align-items: center;

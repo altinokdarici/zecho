@@ -271,6 +271,15 @@ $("#history-close").addEventListener("click", () => {
   if (historyVisible) toggleHistory();
 });
 
+$("#history-clear").addEventListener("click", async () => {
+  try {
+    await invoke("clear_history");
+    renderHistory();
+  } catch (err) {
+    console.error("Clear error:", err);
+  }
+});
+
 $("#btn-settings").addEventListener("click", async (e) => {
   e.stopPropagation();
   try {
