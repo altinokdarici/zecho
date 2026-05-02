@@ -142,7 +142,7 @@ impl TextCleaner {
     }
 }
 
-fn build_prompt(
+pub fn build_prompt(
     raw_text: &str,
     style: &WritingStyle,
     level: &CleanupLevel,

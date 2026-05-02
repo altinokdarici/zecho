@@ -1,11 +1,11 @@
 mod accessibility;
 mod audio;
-mod cleanup;
+pub mod cleanup;
 mod history;
 mod hotkey;
 mod macos_panel;
 mod models;
-mod settings;
+pub mod settings;
 mod transcribe;
 
 use audio::AudioRecorder;

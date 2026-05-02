@@ -105,5 +105,16 @@ jobs:
         with:
           tagName: v${{ inputs.version }}
           releaseName: "Zecho v${{ inputs.version }}"
+          releaseBody: |
+            ## Zecho v${{ inputs.version }}
+
+            Voice-to-clipboard with local AI processing.
+
+            ### Installation
+            - **macOS**: Download the `.dmg` file and drag Zecho to Applications
+            - **Windows**: Download and run the `.msi` installer
+
+            Models are downloaded automatically on first launch.
+            The app auto-updates from future releases.
           releaseDraft: false
           prerelease: false
