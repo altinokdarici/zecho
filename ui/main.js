@@ -95,8 +95,7 @@ async function stopRecording() {
   setState("processing");
   try {
     await invoke("stop_recording");
-    setState("done");
-    setTimeout(() => setState("idle"), 1200);
+    // UI stays in "processing" — transcription-complete event will trigger "done"
   } catch (err) {
     console.error("Stop error:", err);
     setState("idle");
@@ -283,6 +282,10 @@ listen("toggle-recording", () => {
 listen("transcription-complete", () => {
   setState("done");
   setTimeout(() => setState("idle"), 1200);
+});
+listen("transcription-error", (event) => {
+  console.error("Transcription error:", event.payload);
+  setState("idle");
 });
 
 // ── Accessibility check ──

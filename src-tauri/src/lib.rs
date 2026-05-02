@@ -40,10 +40,30 @@ fn get_audio_level(state: tauri::State<'_, AppState>) -> f32 {
 }
 
 #[tauri::command]
-fn stop_recording(state: tauri::State<'_, AppState>, app: tauri::AppHandle) -> Result<String, String> {
-    let text = finish_recording(&state)?;
-    app.emit("transcription-complete", &text).ok();
-    Ok(text)
+fn stop_recording(state: tauri::State<'_, AppState>, app: tauri::AppHandle) -> Result<(), String> {
+    let recorder = state.recorder.lock().map_err(|e| e.to_string())?;
+    let samples = recorder.stop();
+    drop(recorder);
+
+    if samples.is_empty() {
+        return Err("No audio recorded".to_string());
+    }
+
+    let app_handle = app.clone();
+    std::thread::spawn(move || {
+        let state: tauri::State<'_, AppState> = app_handle.state();
+        match process_recording(&state, samples) {
+            Ok(text) => {
+                app_handle.emit("transcription-complete", &text).ok();
+            }
+            Err(e) => {
+                eprintln!("Processing error: {}", e);
+                app_handle.emit("transcription-error", &e).ok();
+            }
+        }
+    });
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -53,18 +73,14 @@ fn cancel_recording(state: tauri::State<'_, AppState>) -> Result<(), String> {
     Ok(())
 }
 
-fn finish_recording(state: &AppState) -> Result<String, String> {
-    let recorder = state.recorder.lock().map_err(|e| e.to_string())?;
-    let samples = recorder.stop();
-    drop(recorder);
-
-    if samples.is_empty() {
-        return Err("No audio recorded".to_string());
-    }
+fn process_recording(state: &AppState, samples: Vec<f32>) -> Result<String, String> {
+    println!("Transcribing {} samples...", samples.len());
 
     let transcriber = state.transcriber.lock().map_err(|e| e.to_string())?;
     let raw_text = transcriber.transcribe(&samples)?;
     drop(transcriber);
+
+    println!("Whisper result: {:?}", raw_text);
 
     if raw_text.is_empty() {
         return Err("No speech detected".to_string());
@@ -80,6 +96,8 @@ fn finish_recording(state: &AppState) -> Result<String, String> {
     )?;
     drop(cleaner);
     drop(settings);
+
+    println!("Final text: {:?}", text);
 
     let mut clipboard = arboard::Clipboard::new().map_err(|e| e.to_string())?;
     clipboard.set_text(&text).map_err(|e| e.to_string())?;
