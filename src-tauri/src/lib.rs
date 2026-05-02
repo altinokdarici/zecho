@@ -86,29 +86,22 @@ fn process_recording(state: &AppState, samples: Vec<f32>) -> Result<String, Stri
         return Err("No speech detected".to_string());
     }
 
-    let text = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        let cleaner = state.cleaner.lock().map_err(|e| e.to_string())?;
-        let settings = state.settings.lock().map_err(|e| e.to_string())?;
-        let result = cleaner.clean(
-            &raw_text,
-            &settings.writing_style,
-            &settings.cleanup_level,
-            settings.custom_prompt.as_deref(),
-        );
-        drop(cleaner);
-        drop(settings);
-        result
-    })) {
-        Ok(Ok(text)) => text,
-        Ok(Err(e)) => {
+    let cleaner = state.cleaner.lock().map_err(|e| e.to_string())?;
+    let settings = state.settings.lock().map_err(|e| e.to_string())?;
+    let text = match cleaner.clean(
+        &raw_text,
+        &settings.writing_style,
+        &settings.cleanup_level,
+        settings.custom_prompt.as_deref(),
+    ) {
+        Ok(t) => t,
+        Err(e) => {
             eprintln!("Cleanup error: {}, using raw text", e);
             raw_text.clone()
         }
-        Err(_) => {
-            eprintln!("Cleanup panicked, using raw text");
-            raw_text.clone()
-        }
     };
+    drop(cleaner);
+    drop(settings);
 
     println!("Final text: {:?}", text);
 
@@ -230,7 +223,7 @@ fn load_cleanup_model(model_id: String, state: tauri::State<'_, AppState>) -> Re
         return Err(format!("Model not downloaded: {}", info.name));
     }
     let mut cleaner = state.cleaner.lock().map_err(|e| e.to_string())?;
-    cleaner.load_model(&path)
+    cleaner.start_worker(&path)
 }
 
 #[tauri::command]
@@ -474,27 +467,28 @@ pub fn run() {
             register_global_shortcut(app);
             hotkey::start_fn_key_listener(app.handle().clone());
 
-            // Load cleanup model on background thread after whisper is done
+            // Start cleanup worker thread — loads model and processes requests via channel
             let cleanup_handle = app.handle().clone();
             std::thread::spawn(move || {
+                // Wait for whisper to finish loading to avoid backend conflicts
                 std::thread::sleep(std::time::Duration::from_secs(3));
                 let cleanup_candidates = ["qwen25-1.5b", "qwen25-3b"];
                 for id in &cleanup_candidates {
                     if let Some(info) = models::get_model(id) {
                         let path = models::model_path(info);
                         if path.exists() {
-                            println!("Loading cleanup model: {} ...", info.name);
+                            println!("Starting cleanup worker: {} ...", info.name);
                             let state = cleanup_handle.state::<AppState>();
                             let mut cleaner = match state.cleaner.lock() {
                                 Ok(c) => c,
                                 Err(_) => continue,
                             };
-                            match cleaner.load_model(&path) {
+                            match cleaner.start_worker(&path) {
                                 Ok(()) => {
-                                    println!("Cleanup model loaded: {}", info.name);
+                                    println!("Cleanup worker started: {}", info.name);
                                     return;
                                 }
-                                Err(e) => eprintln!("Failed to load {}: {}", info.name, e),
+                                Err(e) => eprintln!("Failed to start worker {}: {}", info.name, e),
                             }
                         }
                     }
