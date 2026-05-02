@@ -36,21 +36,6 @@ window.addEventListener("scroll", () => {
     : "rgba(10, 10, 12, 0.7)";
 }, { passive: true });
 
-// Fetch latest release and update download link
-fetch("https://api.github.com/repos/dzearing/zecho/releases/latest")
-  .then(r => r.json())
-  .then(release => {
-    const dmg = release.assets && release.assets.find(a => a.name.endsWith(".dmg"));
-    if (dmg) {
-      const link = document.getElementById("download-link");
-      if (link) link.href = dmg.browser_download_url;
-    }
-    const note = document.getElementById("download-note");
-    if (note && release.tag_name) {
-      note.insertAdjacentText("afterbegin", release.tag_name + " · ");
-    }
-  })
-  .catch(() => {});
 
 // Platform detection — highlight the user's OS download card
 const platform = navigator.platform.toLowerCase();
