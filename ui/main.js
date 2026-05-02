@@ -239,8 +239,10 @@ function toggleHistory() {
   if (historyVisible) {
     panel.classList.remove("hidden");
     renderHistory();
+    resizeWindow(420);
   } else {
     panel.classList.add("hidden");
+    resizeWindow(56);
   }
 }
 
@@ -334,19 +336,25 @@ $("#pill").addEventListener("mousedown", async (e) => {
   } catch (_) {}
 });
 
-// ── Click-through transparent areas ──
-// setIgnoreCursorEvents with forward=true passes events through to apps
-// behind but still delivers them to the webview, so hover/click on the
-// pill works while the transparent area doesn't steal focus.
+// ── Dynamic window sizing ──
+// Keep the window small (just the pill) when idle. Expand when history opens.
+// This avoids transparent area mouse issues — the window IS the pill.
 
-(async () => {
+async function resizeWindow(height) {
   try {
     const win = window.__TAURI__.webviewWindow.getCurrentWebviewWindow();
-    await win.setIgnoreCursorEvents(true, { forward: true });
+    const size = await win.outerSize();
+    const pos = await win.outerPosition();
+    const newY = pos.y + size.height - Math.round(height * window.devicePixelRatio);
+    await win.setSize(new window.__TAURI__.dpi.LogicalSize(280, height));
+    await win.setPosition(new window.__TAURI__.dpi.PhysicalPosition(pos.x, newY));
   } catch (err) {
-    console.error("Cursor events setup error:", err);
+    console.error("Resize error:", err);
   }
-})();
+}
+
+// Start small
+resizeWindow(56);
 
 setState("idle");
 checkAccessibility();

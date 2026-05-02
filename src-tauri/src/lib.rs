@@ -364,7 +364,7 @@ fn position_pill_window(window: &tauri::WebviewWindow, state: &AppState) {
     };
     let screen = monitor.size();
     let scale = monitor.scale_factor();
-    let win_h = window.outer_size().map(|s| s.height as i32).unwrap_or((480.0 * scale) as i32);
+    let win_h = window.outer_size().map(|s| s.height as i32).unwrap_or((56.0 * scale) as i32);
     let win_w = window.outer_size().map(|s| s.width as i32).unwrap_or((280.0 * scale) as i32);
 
     let settings = state.settings.lock().ok();
