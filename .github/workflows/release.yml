@@ -75,8 +75,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CMAKE_OSX_DEPLOYMENT_TARGET: "12.0"
           MACOSX_DEPLOYMENT_TARGET: "12.0"
-          WHISPER_NO_MATMUL_INT8: "1"
-          GGML_NO_MATMUL_INT8: "1"
+          CMAKE_ARGS: "-DGGML_CPU_ARM_ARCH=armv8.2-a"
         with:
           tagName: v${{ inputs.version }}
           releaseName: "Zecho v${{ inputs.version }}"
