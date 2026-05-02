@@ -325,30 +325,6 @@ listen("transcription-error", (event) => {
   setState("idle");
 });
 
-// ── Accessibility check ──
-
-async function checkAccessibility() {
-  try {
-    const hasAccess = await invoke("check_accessibility");
-    if (!hasAccess) {
-      $("#accessibility-prompt").classList.remove("hidden");
-    }
-  } catch (err) {
-    console.error("Accessibility check error:", err);
-  }
-}
-
-$("#btn-grant-access").addEventListener("click", async () => {
-  try {
-    await invoke("open_accessibility_settings");
-  } catch (err) {
-    console.error(err);
-  }
-});
-
-$("#btn-dismiss-access").addEventListener("click", () => {
-  $("#accessibility-prompt").classList.add("hidden");
-});
 
 // ── Drag ──
 
@@ -397,4 +373,3 @@ listen("setup-error", (event) => {
 });
 
 checkSetup();
-checkAccessibility();
