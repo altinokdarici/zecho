@@ -766,8 +766,6 @@ pub fn run() {
 
             for label in &["history", "settings"] {
                 if let Some(win) = app.get_webview_window(label) {
-                    #[cfg(debug_assertions)]
-                    win.open_devtools();
                     let handle = win.clone();
                     win.on_window_event(move |event| {
                         if let tauri::WindowEvent::CloseRequested { api, .. } = event {

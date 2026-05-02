@@ -173,6 +173,7 @@ pub fn build_prompt(
     let examples = match level {
         CleanupLevel::Medium | CleanupLevel::High => "\n\nSelf-correction examples:\n\
             - \"I want red no I mean blue\" → \"I want blue\"\n\
+            - \"he is bad. I mean good\" → \"he is good\"\n\
             - \"use Java actually no use Python\" → \"use Python\"\n\
             - \"make it bigger well actually smaller\" → \"make it smaller\"\n\
             - \"at 3 sorry 4 o'clock\" → \"at 4 o'clock\"",
