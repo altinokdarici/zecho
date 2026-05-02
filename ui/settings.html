@@ -433,8 +433,20 @@
 
       <div class="section">
         <div class="section-label">Text Cleanup</div>
-        <div class="model-list" id="cleanup-models"></div>
-        <div class="section-info">Larger models produce better results but use more memory. Qwen 3 4B Instruct is recommended.</div>
+        <div class="settings-group" style="margin-bottom: 10px">
+          <div class="setting-row">
+            <span class="label">Enable AI cleanup</span>
+            <label class="toggle">
+              <input type="checkbox" id="cleanup-enabled" checked />
+              <span class="toggle-track"></span>
+              <span class="toggle-knob"></span>
+            </label>
+          </div>
+        </div>
+        <div id="cleanup-models-wrapper">
+          <div class="model-list" id="cleanup-models"></div>
+          <div class="section-info">Larger models produce better results but use more memory.</div>
+        </div>
       </div>
     </div>
 
@@ -513,12 +525,20 @@
       });
     }
 
+    let previousCleanupLevel = "Light";
+
     async function loadSettings() {
       settings = await invoke("get_settings");
       selectCard(document.getElementById("style-grid"), "style", settings.writing_style);
       selectCard(document.getElementById("cleanup-grid"), "level", settings.cleanup_level);
       document.getElementById("auto-paste").checked = settings.auto_paste;
       document.getElementById("custom-prompt").value = settings.custom_prompt || "";
+
+      const cleanupOn = settings.cleanup_level !== "None";
+      document.getElementById("cleanup-enabled").checked = cleanupOn;
+      document.getElementById("cleanup-models-wrapper").style.opacity = cleanupOn ? "1" : "0.4";
+      document.getElementById("cleanup-models-wrapper").style.pointerEvents = cleanupOn ? "auto" : "none";
+      if (cleanupOn) previousCleanupLevel = settings.cleanup_level;
     }
 
     async function saveSettings() {
@@ -537,6 +557,21 @@
       const card = e.target.closest(".option-card");
       if (!card) return;
       settings.cleanup_level = card.dataset.level;
+      selectCard(document.getElementById("cleanup-grid"), "level", settings.cleanup_level);
+      saveSettings();
+    });
+
+    document.getElementById("cleanup-enabled").addEventListener("change", (e) => {
+      if (e.target.checked) {
+        settings.cleanup_level = previousCleanupLevel || "Light";
+        document.getElementById("cleanup-models-wrapper").style.opacity = "1";
+        document.getElementById("cleanup-models-wrapper").style.pointerEvents = "auto";
+      } else {
+        previousCleanupLevel = settings.cleanup_level;
+        settings.cleanup_level = "None";
+        document.getElementById("cleanup-models-wrapper").style.opacity = "0.4";
+        document.getElementById("cleanup-models-wrapper").style.pointerEvents = "none";
+      }
       selectCard(document.getElementById("cleanup-grid"), "level", settings.cleanup_level);
       saveSettings();
     });
