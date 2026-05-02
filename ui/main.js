@@ -293,6 +293,7 @@ listen("toggle-recording", () => {
 listen("transcription-complete", () => {
   setState("done");
   setTimeout(() => setState("idle"), 1200);
+  if (historyVisible) renderHistory();
 });
 listen("transcription-error", (event) => {
   console.error("Transcription error:", event.payload);
