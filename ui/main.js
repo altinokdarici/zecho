@@ -187,12 +187,19 @@ async function renderHistory() {
           const rawHtml = changed
             ? `<div class="history-raw">${escapeHtml(item.raw_text)}</div>`
             : "";
+          const hasTimings = item.transcribe_ms > 0 || item.cleanup_ms > 0;
+          const timingHtml = hasTimings
+            ? `<span class="history-timing">STT ${(item.transcribe_ms / 1000).toFixed(1)}s + AI ${(item.cleanup_ms / 1000).toFixed(1)}s</span>`
+            : "";
           return `
       <div class="history-item" data-id="${item.id}">
         <div class="history-item-content">
           <div class="history-text">${escapeHtml(item.text)}</div>
           ${rawHtml}
-          <div class="history-time">${formatTime(item.created_at)}</div>
+          <div class="history-meta">
+            <span class="history-time">${formatTime(item.created_at)}</span>
+            ${timingHtml}
+          </div>
         </div>
         <button class="history-delete" data-delete-id="${item.id}">&times;</button>
       </div>`;

@@ -409,10 +409,22 @@ html, body {
   word-break: break-word;
 }
 
+.history-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
 .history-time {
   font-size: 10px;
   color: var(--text-dim);
-  margin-top: 2px;
+}
+
+.history-timing {
+  font-size: 9px;
+  color: rgba(108, 92, 231, 0.6);
+  font-variant-numeric: tabular-nums;
 }
 
 .history-delete {

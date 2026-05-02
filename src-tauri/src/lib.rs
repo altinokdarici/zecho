@@ -74,18 +74,23 @@ fn cancel_recording(state: tauri::State<'_, AppState>) -> Result<(), String> {
 }
 
 fn process_recording(state: &AppState, samples: Vec<f32>) -> Result<String, String> {
+    use std::time::Instant;
+
     println!("Transcribing {} samples...", samples.len());
 
+    let t0 = Instant::now();
     let transcriber = state.transcriber.lock().map_err(|e| e.to_string())?;
     let raw_text = transcriber.transcribe(&samples)?;
     drop(transcriber);
+    let transcribe_ms = t0.elapsed().as_millis() as u64;
 
-    println!("Whisper result: {:?}", raw_text);
+    println!("Whisper: {:?} ({}ms)", raw_text, transcribe_ms);
 
     if raw_text.is_empty() {
         return Err("No speech detected".to_string());
     }
 
+    let t1 = Instant::now();
     let cleaner = state.cleaner.lock().map_err(|e| e.to_string())?;
     let settings = state.settings.lock().map_err(|e| e.to_string())?;
     let text = match cleaner.clean(
@@ -102,14 +107,15 @@ fn process_recording(state: &AppState, samples: Vec<f32>) -> Result<String, Stri
     };
     drop(cleaner);
     drop(settings);
+    let cleanup_ms = t1.elapsed().as_millis() as u64;
 
-    println!("Final text: {:?}", text);
+    println!("Cleanup: {:?} ({}ms) | Total: {}ms", text, cleanup_ms, transcribe_ms + cleanup_ms);
 
     let mut clipboard = arboard::Clipboard::new().map_err(|e| e.to_string())?;
     clipboard.set_text(&text).map_err(|e| e.to_string())?;
 
     let mut history = state.history.lock().map_err(|e| e.to_string())?;
-    history.add(text.clone(), raw_text);
+    history.add(text.clone(), raw_text, transcribe_ms, cleanup_ms);
     drop(history);
 
     let auto_paste = state.settings.lock().map(|s| s.auto_paste).unwrap_or(false);

@@ -8,6 +8,10 @@ pub struct HistoryItem {
     pub text: String,
     pub raw_text: String,
     pub created_at: DateTime<Utc>,
+    #[serde(default)]
+    pub transcribe_ms: u64,
+    #[serde(default)]
+    pub cleanup_ms: u64,
 }
 
 pub struct HistoryStore {
@@ -31,12 +35,14 @@ impl HistoryStore {
         }
     }
 
-    pub fn add(&mut self, text: String, raw_text: String) {
+    pub fn add(&mut self, text: String, raw_text: String, transcribe_ms: u64, cleanup_ms: u64) {
         let item = HistoryItem {
             id: uuid::Uuid::new_v4().to_string(),
             text,
             raw_text,
             created_at: Utc::now(),
+            transcribe_ms,
+            cleanup_ms,
         };
         self.items.insert(0, item);
         if self.items.len() > 100 {
