@@ -38,6 +38,7 @@ pub struct Settings {
     pub custom_prompt: Option<String>,
     pub active_whisper_model: String,
     pub active_cleanup_model: String,
+    pub setup_complete: bool,
     pub pill_x_pct: Option<f64>,
     pub pill_y_pct: Option<f64>,
     #[serde(skip)]
@@ -55,6 +56,7 @@ impl Default for Settings {
             custom_prompt: None,
             active_whisper_model: "whisper-base-en".to_string(),
             active_cleanup_model: "qwen25-1.5b".to_string(),
+            setup_complete: false,
             pill_x_pct: None,
             pill_y_pct: None,
             path: PathBuf::new(),

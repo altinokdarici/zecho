@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome to Zecho</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #1c1c1e;
+      --surface: #2c2c2e;
+      --text: #f5f5f7;
+      --text-secondary: #98989d;
+      --text-dim: rgba(255, 255, 255, 0.35);
+      --accent: #6c5ce7;
+      --accent-light: rgba(108, 92, 231, 0.15);
+      --green: #30d158;
+      --border: rgba(255, 255, 255, 0.08);
+      --radius: 14px;
+    }
+
+    body {
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    .content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 40px 36px 24px;
+      overflow: hidden;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+
+    .header p {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    /* Steps */
+    .steps {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .step {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: all 0.2s ease;
+    }
+
+    .step.active {
+      border: 1px solid var(--accent);
+      background: var(--accent-light);
+    }
+
+    .step.done {
+      opacity: 0.6;
+    }
+
+    .step-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 16px;
+    }
+
+    .step-icon.pending {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-dim);
+    }
+
+    .step-icon.active {
+      background: var(--accent-light);
+      color: var(--accent);
+    }
+
+    .step-icon.done {
+      background: rgba(48, 209, 88, 0.12);
+      color: var(--green);
+    }
+
+    .step-icon .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(108, 92, 231, 0.3);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .step-content { flex: 1; min-width: 0; }
+
+    .step-title {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .step-desc {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .step-status {
+      font-size: 11px;
+      color: var(--accent);
+      margin-top: 4px;
+    }
+
+    /* Action button */
+    .action-btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      margin-top: 8px;
+    }
+
+    .action-btn.primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .action-btn.primary:hover {
+      background: #7d6ef0;
+    }
+
+    .action-btn.primary:disabled {
+      background: #48484a;
+      color: var(--text-dim);
+      cursor: default;
+    }
+
+    .action-btn.secondary {
+      background: var(--surface);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+
+    .action-btn.secondary:hover {
+      color: var(--text);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .footer {
+      padding: 12px 36px 20px;
+      text-align: center;
+    }
+
+    .skip-link {
+      font-size: 12px;
+      color: var(--text-dim);
+      cursor: pointer;
+      border: none;
+      background: none;
+      font-family: inherit;
+      transition: color 0.12s ease;
+    }
+
+    .skip-link:hover {
+      color: var(--text-secondary);
+    }
+
+    .check {
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+  <div class="content">
+    <div class="header">
+      <h1>Welcome to Zecho</h1>
+      <p>Let's get you set up. This takes about a minute.</p>
+    </div>
+
+    <div class="steps">
+      <div class="step" id="step-accessibility">
+        <div class="step-icon pending" id="icon-accessibility">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M12 15v2m0-8a1.5 1.5 0 110 3 1.5 1.5 0 010-3z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" stroke-width="1.5" fill="none"/>
+          </svg>
+        </div>
+        <div class="step-content">
+          <div class="step-title">Accessibility Permission</div>
+          <div class="step-desc">Required for FN key recording and auto-paste.</div>
+          <div class="step-status" id="status-accessibility"></div>
+        </div>
+      </div>
+
+      <div class="step" id="step-whisper">
+        <div class="step-icon pending" id="icon-whisper">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <rect x="7" y="2" width="10" height="14" rx="5" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            <path d="M4 12c0 4.42 3.58 8 8 8s8-3.58 8-8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+          </svg>
+        </div>
+        <div class="step-content">
+          <div class="step-title">Speech-to-Text Model</div>
+          <div class="step-desc">Whisper — converts your voice to text locally. (~141 MB)</div>
+          <div class="step-status" id="status-whisper"></div>
+        </div>
+      </div>
+
+      <div class="step" id="step-cleanup">
+        <div class="step-icon pending" id="icon-cleanup">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M12 3L3 9v6l9 6 9-6V9l-9-6z" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            <path d="M12 15V9M9 12h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="step-content">
+          <div class="step-title">Text Cleanup Model</div>
+          <div class="step-desc">AI cleanup — removes filler words, fixes corrections. (~1 GB)</div>
+          <div class="step-status" id="status-cleanup"></div>
+        </div>
+      </div>
+    </div>
+
+    <button class="action-btn primary" id="btn-action" disabled>Checking...</button>
+  </div>
+
+  <div class="footer">
+    <button class="skip-link" id="btn-skip">Skip setup</button>
+  </div>
+
+  <script>
+    const { invoke } = window.__TAURI__.core;
+    const { listen } = window.__TAURI__.event;
+
+    let state = {
+      accessibility: false,
+      whisper: false,
+      cleanup: false,
+      downloading: false,
+    };
+
+    const $ = (sel) => document.querySelector(sel);
+
+    function setIcon(id, status) {
+      const el = $(`#icon-${id}`);
+      el.className = `step-icon ${status}`;
+      if (status === "done") {
+        el.innerHTML = '<span class="check"><svg width="16" height="16" viewBox="0 0 18 18" fill="none"><path d="M4 9L7.5 12.5L14 5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
+      } else if (status === "active") {
+        el.innerHTML = '<div class="spinner"></div>';
+      }
+    }
+
+    function setStatus(id, text) {
+      $(`#status-${id}`).textContent = text;
+    }
+
+    function updateUI() {
+      const btn = $("#btn-action");
+
+      // Accessibility
+      if (state.accessibility) {
+        setIcon("accessibility", "done");
+        setStatus("accessibility", "Enabled");
+        $("#step-accessibility").classList.add("done");
+        $("#step-accessibility").classList.remove("active");
+      } else {
+        setIcon("accessibility", "pending");
+        setStatus("accessibility", "Not enabled");
+      }
+
+      // Whisper
+      if (state.whisper) {
+        setIcon("whisper", "done");
+        setStatus("whisper", "Ready");
+        $("#step-whisper").classList.add("done");
+        $("#step-whisper").classList.remove("active");
+      }
+
+      // Cleanup
+      if (state.cleanup) {
+        setIcon("cleanup", "done");
+        setStatus("cleanup", "Ready");
+        $("#step-cleanup").classList.add("done");
+        $("#step-cleanup").classList.remove("active");
+      }
+
+      // Button state
+      if (state.downloading) {
+        btn.disabled = true;
+        btn.textContent = "Downloading...";
+      } else if (!state.accessibility) {
+        btn.disabled = false;
+        btn.textContent = "Grant Accessibility";
+        btn.onclick = grantAccessibility;
+      } else if (!state.whisper || !state.cleanup) {
+        btn.disabled = false;
+        btn.textContent = "Download Models";
+        btn.onclick = downloadModels;
+      } else {
+        btn.disabled = false;
+        btn.textContent = "Get Started";
+        btn.onclick = finish;
+      }
+    }
+
+    async function checkState() {
+      try {
+        state.accessibility = await invoke("check_accessibility");
+        const setup = await invoke("check_setup");
+        state.whisper = setup.whisper_ready;
+        state.cleanup = setup.cleanup_ready;
+      } catch (e) {}
+      updateUI();
+    }
+
+    async function grantAccessibility() {
+      await invoke("open_accessibility_settings");
+      // Poll for permission
+      const poll = setInterval(async () => {
+        state.accessibility = await invoke("check_accessibility");
+        if (state.accessibility) {
+          clearInterval(poll);
+          updateUI();
+        }
+      }, 2000);
+    }
+
+    async function downloadModels() {
+      state.downloading = true;
+      updateUI();
+
+      if (!state.whisper) {
+        setIcon("whisper", "active");
+        $("#step-whisper").classList.add("active");
+        setStatus("whisper", "Downloading...");
+      }
+
+      await invoke("setup_download_models");
+    }
+
+    listen("setup-progress", (event) => {
+      const msg = event.payload;
+      if (msg.includes("Speech") || msg.includes("speech")) {
+        setStatus("whisper", msg);
+        if (msg.includes("ready") || msg.includes("Ready")) {
+          state.whisper = true;
+          setIcon("whisper", "done");
+          $("#step-whisper").classList.remove("active");
+          $("#step-whisper").classList.add("done");
+          // Start cleanup
+          setIcon("cleanup", "active");
+          $("#step-cleanup").classList.add("active");
+          setStatus("cleanup", "Downloading...");
+        }
+      } else if (msg.includes("Cleanup") || msg.includes("cleanup")) {
+        setStatus("cleanup", msg);
+        if (msg.includes("ready") || msg.includes("Ready")) {
+          state.cleanup = true;
+        }
+      }
+      updateUI();
+    });
+
+    listen("setup-complete", () => {
+      state.downloading = false;
+      state.whisper = true;
+      state.cleanup = true;
+      updateUI();
+    });
+
+    listen("setup-error", (event) => {
+      state.downloading = false;
+      setStatus("whisper", event.payload);
+      updateUI();
+    });
+
+    async function finish() {
+      await invoke("complete_setup");
+      // Close setup window
+      const win = window.__TAURI__.webviewWindow.getCurrentWebviewWindow();
+      await win.close();
+    }
+
+    $("#btn-skip").addEventListener("click", async () => {
+      await invoke("complete_setup");
+      const win = window.__TAURI__.webviewWindow.getCurrentWebviewWindow();
+      await win.close();
+    });
+
+    checkState();
+  </script>
+</body>
+</html>

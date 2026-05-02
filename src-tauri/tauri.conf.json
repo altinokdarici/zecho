@@ -22,6 +22,17 @@
         "visible": true
       },
       {
+        "label": "setup",
+        "title": "Welcome to Zecho",
+        "url": "setup.html",
+        "width": 520,
+        "height": 560,
+        "decorations": true,
+        "resizable": false,
+        "visible": false,
+        "center": true
+      },
+      {
         "label": "settings",
         "title": "Zecho Settings",
         "url": "settings.html",

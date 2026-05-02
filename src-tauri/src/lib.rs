@@ -352,6 +352,13 @@ fn setup_download_models(app: tauri::AppHandle) {
 }
 
 #[tauri::command]
+fn complete_setup(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut settings = state.settings.lock().map_err(|e| e.to_string())?;
+    settings.setup_complete = true;
+    settings.save()
+}
+
+#[tauri::command]
 async fn check_for_updates(app: tauri::AppHandle) -> Result<Option<String>, String> {
     use tauri_plugin_updater::UpdaterExt;
     match app.updater().map_err(|e| e.to_string())?.check().await {
@@ -534,6 +541,7 @@ pub fn run() {
             open_accessibility_settings,
             check_setup,
             setup_download_models,
+            complete_setup,
             check_for_updates,
         ])
         .setup(|app| {
@@ -543,6 +551,20 @@ pub fn run() {
 
             // Convert pill to NSPanel (receives mouse without stealing focus)
             macos_panel::make_panel(app);
+
+            // Show setup window on first launch
+            {
+                let state: tauri::State<'_, AppState> = app.state();
+                let setup_complete = state.settings.lock()
+                    .map(|s| s.setup_complete)
+                    .unwrap_or(false);
+                if !setup_complete {
+                    if let Some(window) = app.get_webview_window("setup") {
+                        window.show().ok();
+                        window.set_focus().ok();
+                    }
+                }
+            }
 
             // Start cleanup worker if model already downloaded
             let cleanup_handle = app.handle().clone();
