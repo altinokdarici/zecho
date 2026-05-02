@@ -423,10 +423,7 @@ fn init_models(state: &AppState) {
         eprintln!("Whisper model not found. Run: scripts/download-models.sh");
     }
 
-    // Cleanup model loading disabled — llama-cpp-2 crashes with SIGBUS on mmap.
-    // Using basic text cleanup until we fix the llama.cpp integration.
-    // TODO: Try candle or a subprocess-based approach instead.
-    eprintln!("Cleanup model: using basic text cleanup (LLM integration in progress)");
+    // Cleanup model loaded in setup after Tauri is ready (see below)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -476,6 +473,34 @@ pub fn run() {
             create_tray_icon(app).ok();
             register_global_shortcut(app);
             hotkey::start_fn_key_listener(app.handle().clone());
+
+            // Load cleanup model on background thread after whisper is done
+            let cleanup_handle = app.handle().clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_secs(3));
+                let cleanup_candidates = ["qwen25-1.5b", "qwen25-3b"];
+                for id in &cleanup_candidates {
+                    if let Some(info) = models::get_model(id) {
+                        let path = models::model_path(info);
+                        if path.exists() {
+                            println!("Loading cleanup model: {} ...", info.name);
+                            let state = cleanup_handle.state::<AppState>();
+                            let mut cleaner = match state.cleaner.lock() {
+                                Ok(c) => c,
+                                Err(_) => continue,
+                            };
+                            match cleaner.load_model(&path) {
+                                Ok(()) => {
+                                    println!("Cleanup model loaded: {}", info.name);
+                                    return;
+                                }
+                                Err(e) => eprintln!("Failed to load {}: {}", info.name, e),
+                            }
+                        }
+                    }
+                }
+                eprintln!("No cleanup model available. Download via Settings > Models.");
+            });
 
             // Delay positioning so the window is fully created first
             let handle = app.handle().clone();

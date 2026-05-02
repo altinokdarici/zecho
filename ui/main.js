@@ -182,14 +182,21 @@ async function renderHistory() {
     empty.classList.add("hidden");
     list.innerHTML = items
       .map(
-        (item) => `
+        (item) => {
+          const changed = item.raw_text && item.raw_text !== item.text;
+          const rawHtml = changed
+            ? `<div class="history-raw">${escapeHtml(item.raw_text)}</div>`
+            : "";
+          return `
       <div class="history-item" data-id="${item.id}">
         <div class="history-item-content">
           <div class="history-text">${escapeHtml(item.text)}</div>
+          ${rawHtml}
           <div class="history-time">${formatTime(item.created_at)}</div>
         </div>
         <button class="history-delete" data-delete-id="${item.id}">&times;</button>
-      </div>`
+      </div>`;
+        }
       )
       .join("");
 

@@ -2,6 +2,7 @@
 name = "zecho"
 version = "0.1.0"
 edition = "2021"
+default-run = "zecho"
 
 [lib]
 name = "zecho_lib"

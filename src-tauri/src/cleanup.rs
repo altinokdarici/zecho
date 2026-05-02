@@ -193,35 +193,87 @@ impl TextCleaner {
     }
 
     fn basic_cleanup(text: &str, style: &WritingStyle) -> String {
+        let mut words: Vec<&str> = text.split_whitespace().collect();
+
+        // Remove filler words (case-insensitive)
         let fillers = [
-            " um ", " uh ", " like, ", " you know, ", " basically, ",
-            " um, ", " uh, ", " uhh ", " uhh, ", " umm ", " umm, ",
+            "um", "um,", "umm", "umm,", "uh", "uh,", "uhh", "uhh,",
+            "er", "er,", "err", "err,", "ah", "ah,",
         ];
-        let mut result = format!(" {} ", text);
-        for filler in &fillers {
-            while result.contains(filler) {
-                result = result.replacen(filler, " ", 1);
+        words.retain(|w| {
+            let lower = w.to_lowercase();
+            let stripped = lower.trim_end_matches(['.', ',', '!', '?']);
+            !fillers.contains(&lower.as_str()) && !fillers.contains(&stripped)
+        });
+
+        // Remove filler phrases
+        let mut result = words.join(" ");
+        let filler_phrases = [
+            "you know,", "you know", "like,", "basically,", "basically",
+            "sort of", "kind of", "I guess", "I mean,",
+        ];
+        for phrase in &filler_phrases {
+            while let Some(pos) = result.to_lowercase().find(&phrase.to_lowercase()) {
+                let end = pos + phrase.len();
+                let after = result[end..].trim_start_matches([' ', ',']).to_string();
+                result = format!("{}{}", &result[..pos], after);
             }
         }
 
-        // Basic self-correction: "X, actually Y" / "X, no Y" / "X, I mean Y"
-        let correction_patterns = [
-            ", actually ", ", no actually ", ", no ", ", wait, ", ", I mean ",
-            ". Actually, ", ". No, ", ". Wait, ",
+        // Handle self-corrections: find correction markers and keep only the correction
+        let correction_markers = [
+            " actually ", " actually, ", " no actually ", " no, actually ",
+            " no no ", " no no, ", " wait ", " wait, ",
+            " I mean ", " I meant ", " rather ", " or rather ",
+            " not ", // "I want red, not blue" -> tricky, keep both
         ];
-        for pattern in &correction_patterns {
-            if let Some(pos) = result.rfind(pattern) {
-                let before_correction = &result[..pos];
-                let after_correction = &result[pos + pattern.len()..];
-                if let Some(sentence_start) = before_correction.rfind(". ") {
-                    result = format!("{}. {}", &before_correction[..sentence_start], after_correction);
-                } else {
-                    result = after_correction.to_string();
+
+        // Process corrections from right to left (handle nested corrections)
+        for marker in &correction_markers {
+            if *marker == " not " {
+                continue; // "not" is too ambiguous
+            }
+            let lower = result.to_lowercase();
+            if let Some(pos) = lower.rfind(&marker.to_lowercase()) {
+                let before = result[..pos].trim();
+                let after = result[pos + marker.len()..].trim();
+
+                if after.is_empty() {
+                    continue;
                 }
+
+                // Find the start of the clause being corrected
+                // Look for the last sentence boundary or comma before the marker
+                let clause_start = before.rfind(". ")
+                    .map(|p| p + 2)
+                    .or_else(|| before.rfind(", ").map(|p| p + 2))
+                    .unwrap_or(0);
+
+                // Reconstruct: everything before the corrected clause + the correction
+                let prefix = &before[..clause_start];
+                // Capitalize the correction if it's at the start
+                let corrected = if prefix.is_empty() {
+                    let mut chars = after.chars();
+                    match chars.next() {
+                        Some(c) => format!("{}{}", c.to_uppercase(), chars.as_str()),
+                        None => after.to_string(),
+                    }
+                } else {
+                    after.to_string()
+                };
+
+                result = if prefix.is_empty() {
+                    corrected
+                } else {
+                    format!("{}{}", prefix, corrected)
+                };
             }
         }
 
-        let result = result.split_whitespace().collect::<Vec<_>>().join(" ");
+        // Clean up double spaces and trailing commas
+        result = result.replace("  ", " ").replace(" ,", ",").replace(" .", ".");
+        let result = result.trim().to_string();
+
         Self::apply_style_only(&result, style)
     }
 }
