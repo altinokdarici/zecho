@@ -83,7 +83,7 @@ pub fn make_panel(app: &tauri::App) {
     panel.set_has_shadow(false);
     panel.set_event_handler(Some(handler.as_ref()));
 
-    println!("Pill converted to NSPanel with hover activation");
+    
 }
 
 #[cfg(not(target_os = "macos"))]

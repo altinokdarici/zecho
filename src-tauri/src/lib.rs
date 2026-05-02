@@ -77,15 +77,11 @@ fn cancel_recording(state: tauri::State<'_, AppState>) -> Result<(), String> {
 fn process_recording(state: &AppState, samples: Vec<f32>) -> Result<String, String> {
     use std::time::Instant;
 
-    println!("Transcribing {} samples...", samples.len());
-
     let t0 = Instant::now();
     let transcriber = state.transcriber.lock().map_err(|e| e.to_string())?;
     let raw_text = transcriber.transcribe(&samples)?;
     drop(transcriber);
     let transcribe_ms = t0.elapsed().as_millis() as u64;
-
-    println!("Whisper: {:?} ({}ms)", raw_text, transcribe_ms);
 
     if raw_text.is_empty() {
         return Err("No speech detected".to_string());
@@ -109,8 +105,6 @@ fn process_recording(state: &AppState, samples: Vec<f32>) -> Result<String, Stri
     drop(cleaner);
     drop(settings);
     let cleanup_ms = t1.elapsed().as_millis() as u64;
-
-    println!("Cleanup: {:?} ({}ms) | Total: {}ms", text, cleanup_ms, transcribe_ms + cleanup_ms);
 
     let mut clipboard = arboard::Clipboard::new().map_err(|e| e.to_string())?;
     clipboard.set_text(&text).map_err(|e| e.to_string())?;
@@ -267,6 +261,96 @@ fn open_accessibility_settings() {
     accessibility::prompt_accessibility();
 }
 
+#[derive(serde::Serialize, Clone)]
+struct SetupStatus {
+    whisper_ready: bool,
+    cleanup_ready: bool,
+    whisper_downloading: bool,
+    cleanup_downloading: bool,
+}
+
+#[tauri::command]
+fn check_setup() -> SetupStatus {
+    let whisper = models::default_whisper_model();
+    let cleanup_candidates = ["qwen25-1.5b", "qwen25-3b"];
+    let cleanup_ready = cleanup_candidates
+        .iter()
+        .any(|id| models::get_model(id).map(|m| models::is_downloaded(m)).unwrap_or(false));
+
+    SetupStatus {
+        whisper_ready: models::is_downloaded(whisper),
+        cleanup_ready,
+        whisper_downloading: false,
+        cleanup_downloading: false,
+    }
+}
+
+#[tauri::command]
+fn setup_download_models(app: tauri::AppHandle) {
+    std::thread::spawn(move || {
+        let whisper = models::default_whisper_model();
+        if !models::is_downloaded(whisper) {
+            app.emit("setup-progress", "Downloading speech model...").ok();
+            match models::download_model_blocking(whisper) {
+                Ok(_) => {
+                    app.emit("setup-progress", "Speech model ready").ok();
+                    {
+                        let state = app.state::<AppState>();
+                        let mut t = state.transcriber.lock().unwrap();
+                        t.load_model(&models::model_path(whisper)).ok();
+                    }
+                }
+                Err(e) => {
+                    app.emit("setup-error", &format!("Failed to download speech model: {}", e)).ok();
+                    return;
+                }
+            }
+        }
+
+        let cleanup_candidates = ["qwen25-1.5b", "qwen25-3b"];
+        let mut cleanup_downloaded = false;
+        for id in &cleanup_candidates {
+            if let Some(info) = models::get_model(id) {
+                if models::is_downloaded(info) {
+                    cleanup_downloaded = true;
+                    break;
+                }
+            }
+        }
+        if !cleanup_downloaded {
+            if let Some(info) = models::get_model("qwen25-1.5b") {
+                app.emit("setup-progress", "Downloading cleanup model...").ok();
+                match models::download_model_blocking(info) {
+                    Ok(_) => {
+                        app.emit("setup-progress", "Cleanup model ready").ok();
+                    }
+                    Err(e) => {
+                        app.emit("setup-error", &format!("Failed to download cleanup model: {}", e)).ok();
+                        return;
+                    }
+                }
+            }
+        }
+
+        // Start the cleanup worker
+        for id in &cleanup_candidates {
+            if let Some(info) = models::get_model(id) {
+                let path = models::model_path(info);
+                if path.exists() {
+                    {
+                        let state = app.state::<AppState>();
+                        let mut c = state.cleaner.lock().unwrap();
+                        c.start_worker(&path).ok();
+                    }
+                    break;
+                }
+            }
+        }
+
+        app.emit("setup-complete", ()).ok();
+    });
+}
+
 #[tauri::command]
 async fn check_for_updates(app: tauri::AppHandle) -> Result<Option<String>, String> {
     use tauri_plugin_updater::UpdaterExt;
@@ -388,9 +472,6 @@ fn position_pill_window(window: &tauri::WebviewWindow, state: &AppState) {
         (x, y)
     };
 
-    println!("Positioning pill: screen={}x{} win={}x{} saved={:?} -> ({}, {})",
-        screen.width, screen.height, win_w, win_h, saved, x, y);
-
     window
         .set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }))
         .ok();
@@ -400,30 +481,19 @@ fn register_global_shortcut(app: &tauri::App) {
     use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut};
 
     let shortcut = Shortcut::new(Some(Modifiers::ALT), Code::Space);
-    match app.global_shortcut().on_shortcut(shortcut, |app_handle, _shortcut, _event| {
+    app.global_shortcut().on_shortcut(shortcut, |app_handle, _shortcut, _event| {
         let _ = app_handle.emit("toggle-recording", ());
-    }) {
-        Ok(()) => println!("Global shortcut registered: Option+Space"),
-        Err(e) => eprintln!("Failed to register global shortcut: {}", e),
-    }
+    }).ok();
 }
 
 fn init_models(state: &AppState) {
-    // Load whisper model
     let whisper_model = models::default_whisper_model();
     let whisper_path = models::model_path(whisper_model);
     if whisper_path.exists() {
         if let Ok(mut t) = state.transcriber.lock() {
-            match t.load_model(&whisper_path) {
-                Ok(()) => println!("Whisper model loaded: {}", whisper_model.name),
-                Err(e) => eprintln!("Failed to load whisper model: {}", e),
-            }
+            t.load_model(&whisper_path).ok();
         }
-    } else {
-        eprintln!("Whisper model not found. Run: scripts/download-models.sh");
     }
-
-    // Cleanup model loaded in setup after Tauri is ready (see below)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -468,6 +538,8 @@ pub fn run() {
             load_whisper_model_cmd,
             check_accessibility,
             open_accessibility_settings,
+            check_setup,
+            setup_download_models,
             check_for_updates,
         ])
         .setup(|app| {
@@ -478,33 +550,23 @@ pub fn run() {
             // Convert pill to NSPanel (receives mouse without stealing focus)
             macos_panel::make_panel(app);
 
-            // Start cleanup worker thread — loads model and processes requests via channel
+            // Start cleanup worker if model already downloaded
             let cleanup_handle = app.handle().clone();
             std::thread::spawn(move || {
-                // Wait for whisper to finish loading to avoid backend conflicts
                 std::thread::sleep(std::time::Duration::from_secs(3));
                 let cleanup_candidates = ["qwen25-1.5b", "qwen25-3b"];
                 for id in &cleanup_candidates {
                     if let Some(info) = models::get_model(id) {
                         let path = models::model_path(info);
                         if path.exists() {
-                            println!("Starting cleanup worker: {} ...", info.name);
                             let state = cleanup_handle.state::<AppState>();
-                            let mut cleaner = match state.cleaner.lock() {
-                                Ok(c) => c,
-                                Err(_) => continue,
-                            };
-                            match cleaner.start_worker(&path) {
-                                Ok(()) => {
-                                    println!("Cleanup worker started: {}", info.name);
-                                    return;
-                                }
-                                Err(e) => eprintln!("Failed to start worker {}: {}", info.name, e),
+                            if let Ok(mut c) = state.cleaner.lock() {
+                                c.start_worker(&path).ok();
                             }
+                            return;
                         }
                     }
                 }
-                eprintln!("No cleanup model available. Download via Settings > Models.");
             });
 
             // Delay positioning so the window is fully created first

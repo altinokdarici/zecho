@@ -42,7 +42,7 @@ impl TextCleaner {
                 return;
             }
 
-            println!("Cleanup worker: starting persistent subprocess...");
+            
             let mut child = match Command::new(&test_llm)
                 .arg(path.to_str().unwrap())
                 .stdin(Stdio::piped())
@@ -61,7 +61,7 @@ impl TextCleaner {
             let stdout = child.stdout.take().expect("stdout");
             let mut reader = BufReader::new(stdout);
 
-            println!("Cleanup worker: persistent subprocess ready (model loaded once)");
+            
 
             for req in rx {
                 let prompt = build_prompt(&req.raw_text, &req.style, &req.level, req.custom_prompt.as_deref());

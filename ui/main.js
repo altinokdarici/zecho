@@ -14,7 +14,7 @@ const $ = (sel) => document.querySelector(sel);
 
 function setState(state) {
   const pill = $("#pill");
-  const states = ["idle", "recording", "processing", "done"];
+  const states = ["idle", "recording", "processing", "done", "setup"];
 
   states.forEach((s) => {
     const el = $(`#state-${s}`);
@@ -364,5 +364,37 @@ $("#pill").addEventListener("mousedown", async (e) => {
 // This avoids transparent area mouse issues — the window IS the pill.
 
 
-setState("idle");
+// ── First-run setup ──
+
+async function checkSetup() {
+  try {
+    const status = await invoke("check_setup");
+    if (!status.whisper_ready || !status.cleanup_ready) {
+      setState("setup");
+      $("#setup-label").textContent = "Downloading models...";
+      await invoke("setup_download_models");
+    } else {
+      setState("idle");
+    }
+  } catch (err) {
+    setState("idle");
+  }
+}
+
+listen("setup-progress", (event) => {
+  const label = $("#setup-label");
+  if (label) label.textContent = event.payload;
+});
+
+listen("setup-complete", () => {
+  setState("idle");
+});
+
+listen("setup-error", (event) => {
+  const label = $("#setup-label");
+  if (label) label.textContent = "Setup failed";
+  setTimeout(() => setState("idle"), 3000);
+});
+
+checkSetup();
 checkAccessibility();

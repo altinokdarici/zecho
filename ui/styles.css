@@ -232,6 +232,41 @@ html, body {
   min-width: 0;
 }
 
+/* ── Setup state ── */
+
+#pill.setup {
+  height: 36px;
+  width: 200px;
+  border-radius: 18px;
+  padding: 0 16px;
+  border-color: rgba(108, 92, 231, 0.25);
+}
+
+#pill.setup:hover {
+  height: 36px;
+  width: 200px;
+  border-radius: 18px;
+  padding: 0 16px;
+}
+
+#state-setup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: fadeIn 0.15s ease;
+  color: #c8b6ff;
+}
+
+#setup-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(108, 92, 231, 0.3);
+  border-top-color: #6c5ce7;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
 /* ── Processing state ── */
 
 #pill.processing {
