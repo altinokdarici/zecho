@@ -111,16 +111,19 @@ impl TextCleaner {
     ) -> Result<String, String> {
         let prompt = Self::build_prompt(raw_text, style, level, custom_prompt);
 
-        let ctx_params = LlamaContextParams::default().with_n_ctx(NonZeroU32::new(512));
-        let mut ctx = model
-            .new_context(backend, ctx_params)
-            .map_err(|e| format!("Context error: {}", e))?;
-
         let tokens = model
             .str_to_token(&prompt, AddBos::Always)
             .map_err(|e| format!("Tokenize error: {}", e))?;
 
-        let mut batch = LlamaBatch::new(512, 1);
+        let n_ctx = std::cmp::max(tokens.len() as u32 + 256, 1024);
+        let ctx_params = LlamaContextParams::default().with_n_ctx(NonZeroU32::new(n_ctx));
+        let mut ctx = model
+            .new_context(backend, ctx_params)
+            .map_err(|e| format!("Context error: {}", e))?;
+
+        println!("LLM cleanup: {} prompt tokens, {} ctx size", tokens.len(), n_ctx);
+
+        let mut batch = LlamaBatch::new(n_ctx as usize, 1);
         for (i, token) in tokens.iter().enumerate() {
             let is_last = i == tokens.len() - 1;
             batch
@@ -132,8 +135,8 @@ impl TextCleaner {
             .map_err(|e| format!("Decode error: {}", e))?;
 
         let mut sampler = LlamaSampler::chain_simple([
-            LlamaSampler::temp(0.3),
-            LlamaSampler::top_p(0.9, 1),
+            LlamaSampler::temp(0.1),
+            LlamaSampler::top_p(0.95, 1),
             LlamaSampler::dist(42),
         ]);
 
@@ -149,9 +152,10 @@ impl TextCleaner {
             }
 
             #[allow(deprecated)]
-            let piece = model
-                .token_to_str(token, Special::Tokenize)
-                .map_err(|e| format!("Detokenize error: {}", e))?;
+            let piece = match model.token_to_str(token, Special::Tokenize) {
+                Ok(s) => s,
+                Err(_) => break,
+            };
 
             output.push_str(&piece);
             if output.contains("<|im_end|>") || output.contains("<|endoftext|>") {
@@ -172,6 +176,7 @@ impl TextCleaner {
         }
 
         let result = output.trim().to_string();
+        println!("LLM cleanup result: {:?}", result);
         if result.is_empty() {
             Ok(Self::basic_cleanup(raw_text, style))
         } else {

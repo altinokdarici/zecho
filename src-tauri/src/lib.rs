@@ -86,11 +86,10 @@ fn finish_recording(state: &AppState) -> Result<String, String> {
 
     let mut history = state.history.lock().map_err(|e| e.to_string())?;
     history.add(text.clone(), raw_text);
+    drop(history);
 
-    // Auto-paste if enabled
-    let settings = state.settings.lock().map_err(|e| e.to_string())?;
-    if settings.auto_paste {
-        drop(settings);
+    let auto_paste = state.settings.lock().map(|s| s.auto_paste).unwrap_or(false);
+    if auto_paste {
         simulate_paste();
     }
 
@@ -101,16 +100,12 @@ fn simulate_paste() {
     #[cfg(target_os = "macos")]
     {
         std::thread::spawn(|| {
-            std::thread::sleep(std::time::Duration::from_millis(100));
+            std::thread::sleep(std::time::Duration::from_millis(300));
             let _ = std::process::Command::new("osascript")
                 .arg("-e")
                 .arg("tell application \"System Events\" to keystroke \"v\" using command down")
                 .output();
         });
-    }
-    #[cfg(target_os = "windows")]
-    {
-        // TODO: use SendInput API
     }
 }
 
