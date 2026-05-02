@@ -411,17 +411,14 @@
     });
 
     async function finish() {
-      await invoke("complete_setup");
-      // Close setup window
-      const win = window.__TAURI__.webviewWindow.getCurrentWebviewWindow();
-      await win.close();
+      try { await invoke("complete_setup"); } catch (_) {}
+      try {
+        const win = window.__TAURI__.webviewWindow.getCurrentWebviewWindow();
+        await win.hide();
+      } catch (_) {}
     }
 
-    $("#btn-skip").addEventListener("click", async () => {
-      await invoke("complete_setup");
-      const win = window.__TAURI__.webviewWindow.getCurrentWebviewWindow();
-      await win.close();
-    });
+    $("#btn-skip").addEventListener("click", finish);
 
     checkState();
   </script>
