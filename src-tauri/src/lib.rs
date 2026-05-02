@@ -86,16 +86,29 @@ fn process_recording(state: &AppState, samples: Vec<f32>) -> Result<String, Stri
         return Err("No speech detected".to_string());
     }
 
-    let cleaner = state.cleaner.lock().map_err(|e| e.to_string())?;
-    let settings = state.settings.lock().map_err(|e| e.to_string())?;
-    let text = cleaner.clean(
-        &raw_text,
-        &settings.writing_style,
-        &settings.cleanup_level,
-        settings.custom_prompt.as_deref(),
-    )?;
-    drop(cleaner);
-    drop(settings);
+    let text = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let cleaner = state.cleaner.lock().map_err(|e| e.to_string())?;
+        let settings = state.settings.lock().map_err(|e| e.to_string())?;
+        let result = cleaner.clean(
+            &raw_text,
+            &settings.writing_style,
+            &settings.cleanup_level,
+            settings.custom_prompt.as_deref(),
+        );
+        drop(cleaner);
+        drop(settings);
+        result
+    })) {
+        Ok(Ok(text)) => text,
+        Ok(Err(e)) => {
+            eprintln!("Cleanup error: {}, using raw text", e);
+            raw_text.clone()
+        }
+        Err(_) => {
+            eprintln!("Cleanup panicked, using raw text");
+            raw_text.clone()
+        }
+    };
 
     println!("Final text: {:?}", text);
 
