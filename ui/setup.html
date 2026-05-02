@@ -282,7 +282,7 @@
   </div>
 
   <div class="button-area">
-    <button class="action-btn primary" id="btn-action" disabled>Checking...</button>
+    <button class="action-btn primary" id="btn-action">Enable Input Monitoring</button>
   </div>
 
   <div class="footer">
@@ -387,19 +387,17 @@
     }
 
     async function checkState() {
+      // Don't block on invoke — update UI immediately with defaults
+      updateUI();
+      // Then try to get real state in background
       try {
         state.accessibility = await withTimeout(invoke("check_accessibility"), 2000);
-      } catch (e) {
-        state.accessibility = false;
-      }
+      } catch (e) {}
       try {
         const setup = await withTimeout(invoke("check_setup"), 2000);
         state.whisper = setup.whisper_ready;
         state.cleanup = setup.cleanup_ready;
-      } catch (e) {
-        state.whisper = false;
-        state.cleanup = false;
-      }
+      } catch (e) {}
       updateUI();
     }
 
@@ -493,6 +491,7 @@
       }
     }
 
+    $("#btn-action").dataset.action = "accessibility";
     $("#btn-action").addEventListener("click", function() {
       var action = this.dataset.action;
       this.textContent = "Working...";
