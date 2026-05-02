@@ -311,8 +311,6 @@
       downloading: false,
     };
 
-    const $ = (sel) => document.querySelector(sel);
-
     function setIcon(id, status) {
       const el = $(`#icon-${id}`);
       el.className = `step-icon ${status}`;
@@ -408,8 +406,8 @@
         if (state.accessibility) {
           clearInterval(poll);
           await invoke("start_fn_listener");
-          updateUI();
         }
+        updateUI();
       }, 2000);
     }
 
@@ -494,12 +492,19 @@
     $("#btn-action").dataset.action = "accessibility";
     $("#btn-action").addEventListener("click", function() {
       var action = this.dataset.action;
-      this.textContent = "Working...";
-      this.disabled = true;
-      if (action === "accessibility") grantAccessibility();
-      else if (action === "microphone") grantMicrophone();
-      else if (action === "download") downloadModels();
-      else if (action === "finish") finish();
+      if (action === "accessibility") {
+        grantAccessibility();
+      } else if (action === "microphone") {
+        grantMicrophone();
+      } else if (action === "download") {
+        this.textContent = "Working...";
+        this.disabled = true;
+        downloadModels();
+      } else if (action === "finish") {
+        this.textContent = "Working...";
+        this.disabled = true;
+        finish();
+      }
     });
 
     $("#btn-skip").addEventListener("click", function() {

@@ -124,12 +124,25 @@ fn process_recording(state: &AppState, samples: Vec<f32>) -> Result<String, Stri
 fn simulate_paste() {
     #[cfg(target_os = "macos")]
     {
+        use core_graphics::event::{CGEvent, CGEventFlags, CGKeyCode};
+        use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
+
         std::thread::spawn(|| {
             std::thread::sleep(std::time::Duration::from_millis(300));
-            let _ = std::process::Command::new("osascript")
-                .arg("-e")
-                .arg("tell application \"System Events\" to keystroke \"v\" using command down")
-                .output();
+            let source = match CGEventSource::new(CGEventSourceStateID::HIDSystemState) {
+                Ok(s) => s,
+                Err(_) => return,
+            };
+            // 'v' keycode = 9
+            let key_v: CGKeyCode = 9;
+            if let Ok(event) = CGEvent::new_keyboard_event(source.clone(), key_v, true) {
+                event.set_flags(CGEventFlags::CGEventFlagCommand);
+                event.post(core_graphics::event::CGEventTapLocation::HID);
+            }
+            if let Ok(event) = CGEvent::new_keyboard_event(source, key_v, false) {
+                event.set_flags(CGEventFlags::CGEventFlagCommand);
+                event.post(core_graphics::event::CGEventTapLocation::HID);
+            }
         });
     }
 }
@@ -378,14 +391,24 @@ fn hide_setup(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("setup") {
         window.hide().map_err(|e| e.to_string())?;
     }
+    if let Some(pill) = app.get_webview_window("pill") {
+        pill.show().ok();
+    }
     Ok(())
 }
 
 #[tauri::command]
-fn complete_setup(state: tauri::State<'_, AppState>) -> Result<(), String> {
+fn complete_setup(state: tauri::State<'_, AppState>, app: tauri::AppHandle) -> Result<(), String> {
     let mut settings = state.settings.lock().map_err(|e| e.to_string())?;
     settings.setup_complete = true;
-    settings.save()
+    settings.save()?;
+    drop(settings);
+
+    if let Some(pill) = app.get_webview_window("pill") {
+        pill.show().ok();
+    }
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -601,6 +624,9 @@ pub fn run() {
                     .any(|id| models::get_model(id).map(|m| models::is_downloaded(m)).unwrap_or(false));
                 let accessibility = accessibility::is_accessibility_enabled();
                 if !whisper_ready || !cleanup_ready || !accessibility {
+                    if let Some(pill) = app.get_webview_window("pill") {
+                        pill.hide().ok();
+                    }
                     if let Some(window) = app.get_webview_window("setup") {
                         window.show().ok();
                         window.set_focus().ok();
