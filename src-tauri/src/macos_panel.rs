@@ -1,5 +1,5 @@
 #[cfg(target_os = "macos")]
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 #[cfg(target_os = "macos")]
 use tauri_nspanel::{
     tauri_panel, CollectionBehavior, ManagerExt, PanelLevel, StyleMask, TrackingAreaOptions,
@@ -58,6 +58,7 @@ pub fn make_panel(app: &tauri::App) {
         if let Ok(p) = handle.get_webview_panel("pill") {
             p.make_key_window();
         }
+        handle.emit("pill-hover", true).ok();
     });
 
     // Resign key on mouse exit so the previous app regains focus
@@ -66,6 +67,7 @@ pub fn make_panel(app: &tauri::App) {
         if let Ok(p) = handle.get_webview_panel("pill") {
             p.resign_key_window();
         }
+        handle.emit("pill-hover", false).ok();
     });
 
     panel.set_level(PanelLevel::Floating.value());

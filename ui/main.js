@@ -195,6 +195,14 @@ document.addEventListener("keydown", (e) => {
 });
 
 // Backend events
+listen("pill-hover", (event) => {
+  const pill = $("#pill");
+  if (event.payload) {
+    pill.classList.add("hover");
+  } else {
+    pill.classList.remove("hover");
+  }
+});
 listen("fn-key-down", () => handleFnDown());
 listen("fn-key-up", () => handleFnUp());
 listen("toggle-recording", () => {
@@ -203,6 +211,9 @@ listen("toggle-recording", () => {
   } else {
     startRecording();
   }
+});
+listen("cancel-recording", () => {
+  if (isRecording) cancelRecording();
 });
 listen("transcription-complete", () => {
   setState("done");

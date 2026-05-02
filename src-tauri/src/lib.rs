@@ -484,10 +484,11 @@ fn create_tray_icon(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> 
         tauri::image::Image::new_owned(buf, info.width, info.height)
     };
 
-    let show = MenuItem::with_id(app, "show", "Show Zecho", true, None::<&str>)?;
-    let settings_item = MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&show, &settings_item, &quit])?;
+    let history = MenuItem::with_id(app, "history", "Show History", true, None::<&str>)?;
+    let settings_item = MenuItem::with_id(app, "settings", "Settings...", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "Quit Zecho", true, None::<&str>)?;
+    let sep = tauri::menu::PredefinedMenuItem::separator(app)?;
+    let menu = Menu::with_items(app, &[&history, &sep, &settings_item, &quit])?;
 
     TrayIconBuilder::new()
         .icon(icon)
@@ -495,10 +496,37 @@ fn create_tray_icon(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> 
         .menu(&menu)
         .tooltip("Zecho")
         .on_menu_event(|app, event| match event.id().as_ref() {
-            "show" => {
-                if let Some(window) = app.get_webview_window("pill") {
-                    window.show().ok();
-                    window.set_focus().ok();
+            "history" => {
+                if let Some(hist) = app.get_webview_window("history") {
+                    if !hist.is_visible().unwrap_or(false) {
+                        // Position above pill
+                        if let Some(pill) = app.get_webview_window("pill") {
+                            if let (Ok(pill_pos), Ok(pill_size), Ok(hist_size)) = (
+                                pill.outer_position(), pill.outer_size(), hist.outer_size(),
+                            ) {
+                                let hist_w = hist_size.width as i32;
+                                let hist_h = hist_size.height as i32;
+                                let pill_cx = pill_pos.x + pill_size.width as i32 / 2;
+                                let mut x = pill_cx - hist_w / 2;
+                                let mut y = pill_pos.y - hist_h - 8;
+                                if let Ok(Some(monitor)) = pill.current_monitor() {
+                                    let screen = monitor.size();
+                                    let sp = monitor.position();
+                                    let sw = screen.width as i32;
+                                    let sh = screen.height as i32;
+                                    if x < sp.x { x = sp.x; }
+                                    if x + hist_w > sp.x + sw { x = sp.x + sw - hist_w; }
+                                    if y < sp.y { y = sp.y; }
+                                    if y + hist_h > sp.y + sh { y = sp.y + sh - hist_h; }
+                                }
+                                hist.set_position(tauri::Position::Physical(
+                                    tauri::PhysicalPosition { x, y },
+                                )).ok();
+                            }
+                        }
+                        hist.show().ok();
+                    }
+                    hist.set_focus().ok();
                 }
             }
             "settings" => {
@@ -552,7 +580,7 @@ fn position_pill_window(window: &tauri::WebviewWindow, state: &AppState) {
     };
     let screen = monitor.size();
     let scale = monitor.scale_factor();
-    let win_h = window.outer_size().map(|s| s.height as i32).unwrap_or((52.0 * scale) as i32);
+    let win_h = window.outer_size().map(|s| s.height as i32).unwrap_or((46.0 * scale) as i32);
     let win_w = window.outer_size().map(|s| s.width as i32).unwrap_or((220.0 * scale) as i32);
 
     let settings = state.settings.lock().ok();
@@ -586,6 +614,11 @@ fn register_global_shortcut(app: &tauri::App) {
     let shortcut = Shortcut::new(Some(Modifiers::ALT), Code::Space);
     app.global_shortcut().on_shortcut(shortcut, |app_handle, _shortcut, _event| {
         let _ = app_handle.emit("toggle-recording", ());
+    }).ok();
+
+    let esc = Shortcut::new(None, Code::Escape);
+    app.global_shortcut().on_shortcut(esc, |app_handle, _shortcut, _event| {
+        let _ = app_handle.emit("cancel-recording", ());
     }).ok();
 }
 
@@ -713,14 +746,16 @@ pub fn run() {
                 }
             });
 
-            if let Some(hist) = app.get_webview_window("history") {
-                let hist_handle = hist.clone();
-                hist.on_window_event(move |event| {
-                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                        api.prevent_close();
-                        hist_handle.hide().ok();
-                    }
-                });
+            for label in &["history", "settings"] {
+                if let Some(win) = app.get_webview_window(label) {
+                    let handle = win.clone();
+                    win.on_window_event(move |event| {
+                        if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                            api.prevent_close();
+                            handle.hide().ok();
+                        }
+                    });
+                }
             }
 
             Ok(())
