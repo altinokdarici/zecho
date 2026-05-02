@@ -561,13 +561,14 @@ pub fn run() {
             // Convert pill to NSPanel (receives mouse without stealing focus)
             macos_panel::make_panel(app);
 
-            // Show setup window on first launch
+            // Show setup window if anything is missing
             {
-                let state: tauri::State<'_, AppState> = app.state();
-                let setup_complete = state.settings.lock()
-                    .map(|s| s.setup_complete)
-                    .unwrap_or(false);
-                if !setup_complete {
+                let whisper_ready = models::is_downloaded(models::default_whisper_model());
+                let cleanup_ready = ["qwen25-1.5b", "qwen25-3b"].iter()
+                    .any(|id| models::get_model(id).map(|m| models::is_downloaded(m)).unwrap_or(false));
+                let accessibility = accessibility::is_accessibility_enabled();
+
+                if !whisper_ready || !cleanup_ready || !accessibility {
                     if let Some(window) = app.get_webview_window("setup") {
                         window.show().ok();
                         window.set_focus().ok();
