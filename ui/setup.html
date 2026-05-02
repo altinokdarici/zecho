@@ -339,26 +339,28 @@
         $("#step-cleanup").classList.add("done");
       }
 
+      let nextAction = null;
       if (state.downloading) {
         btn.disabled = true;
         btn.textContent = "Downloading...";
       } else if (!state.accessibility) {
         btn.disabled = false;
         btn.textContent = "Enable Input Monitoring";
-        btn.onclick = grantAccessibility;
+        nextAction = "accessibility";
       } else if (!state.microphone) {
         btn.disabled = false;
         btn.textContent = "Enable Microphone";
-        btn.onclick = grantMicrophone;
+        nextAction = "microphone";
       } else if (!state.whisper || !state.cleanup) {
         btn.disabled = false;
         btn.textContent = "Download Models";
-        btn.onclick = downloadModels;
+        nextAction = "download";
       } else {
         btn.disabled = false;
         btn.textContent = "Get Started";
-        btn.onclick = finish;
+        nextAction = "finish";
       }
+      btn.dataset.action = nextAction;
     }
 
     async function checkState() {
@@ -462,6 +464,14 @@
     }
 
     $("#btn-skip").addEventListener("click", finish);
+
+    $("#btn-action").addEventListener("click", () => {
+      const action = $("#btn-action").dataset.action;
+      if (action === "accessibility") grantAccessibility();
+      else if (action === "microphone") grantMicrophone();
+      else if (action === "download") downloadModels();
+      else if (action === "finish") finish();
+    });
 
     checkState();
   </script>
