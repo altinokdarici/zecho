@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zecho History</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #1c1c1e;
+      --text: #e5e5e7;
+      --text-dim: rgba(255, 255, 255, 0.4);
+      --accent: #4a9eff;
+      --recording: #ff453a;
+      --success: #30d158;
+      --border: rgba(255, 255, 255, 0.08);
+      --hover: rgba(255, 255, 255, 0.06);
+    }
+
+    html, body {
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+      color: var(--text);
+      height: 100%;
+      overflow: hidden;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    #container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    #header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      flex-shrink: 0;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .header-btn {
+      font-size: 11px;
+      font-weight: 500;
+      font-family: inherit;
+      color: var(--text-dim);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 2px 0;
+      transition: color 0.12s ease;
+    }
+
+    .header-btn:hover { color: var(--recording); }
+
+    #list {
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .item {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.1s ease;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .item:hover { background: var(--hover); }
+    .item:last-child { border-bottom: none; }
+
+    .item-content { flex: 1; min-width: 0; }
+
+    .item-text {
+      font-size: 12px;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      color: var(--text);
+      word-break: break-word;
+    }
+
+    .item-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 2px;
+    }
+
+    .item-time { font-size: 10px; color: var(--text-dim); }
+
+    .item-timing {
+      font-size: 9px;
+      color: rgba(108, 92, 231, 0.6);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .item-info {
+      flex-shrink: 0;
+      opacity: 0;
+      transition: opacity 0.1s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border: none;
+      background: transparent;
+      color: var(--text-dim);
+      border-radius: 50%;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .item:hover .item-info { opacity: 1; }
+    .item-info:hover { background: rgba(255, 255, 255, 0.1); color: var(--text); }
+
+    .detail {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      background: rgba(108, 92, 231, 0.04);
+    }
+
+    .detail-col { min-width: 0; }
+
+    .detail-label {
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 4px;
+    }
+
+    .detail-text {
+      font-size: 11px;
+      line-height: 1.5;
+      color: var(--text);
+      word-break: break-word;
+    }
+
+    .detail-timing {
+      grid-column: 1 / -1;
+      font-size: 9px;
+      color: rgba(108, 92, 231, 0.5);
+      font-variant-numeric: tabular-nums;
+    }
+
+    #empty {
+      padding: 24px 14px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="header">
+      <span>History</span>
+      <div class="header-actions">
+        <button id="btn-clear" class="header-btn">Clear</button>
+      </div>
+    </div>
+    <div id="list"></div>
+    <div id="empty" class="hidden">No recordings yet</div>
+  </div>
+
+  <script>
+    const { invoke } = window.__TAURI__.core;
+    const { listen } = window.__TAURI__.event;
+
+    function formatTime(isoString) {
+      const d = new Date(isoString);
+      const now = new Date();
+      const diff = now - d;
+      if (diff < 60000) return "Just now";
+      if (diff < 3600000) return Math.floor(diff / 60000) + "m ago";
+      if (diff < 86400000) return Math.floor(diff / 3600000) + "h ago";
+      return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    async function render() {
+      const list = document.getElementById("list");
+      const empty = document.getElementById("empty");
+
+      try {
+        const items = await invoke("get_history");
+        if (items.length === 0) {
+          list.innerHTML = "";
+          empty.classList.remove("hidden");
+          return;
+        }
+
+        empty.classList.add("hidden");
+        list.innerHTML = items.map(item => {
+          const hasTimings = item.transcribe_ms > 0 || item.cleanup_ms > 0;
+          const timingHtml = hasTimings
+            ? '<span class="item-timing">STT ' + (item.transcribe_ms / 1000).toFixed(1) + 's + AI ' + (item.cleanup_ms / 1000).toFixed(1) + 's</span>'
+            : "";
+          return '<div class="item" data-id="' + item.id + '">' +
+            '<div class="item-content">' +
+              '<div class="item-text">' + escapeHtml(item.text) + '</div>' +
+              '<div class="item-meta">' +
+                '<span class="item-time">' + formatTime(item.created_at) + '</span>' +
+                timingHtml +
+              '</div>' +
+            '</div>' +
+            '<button class="item-info" data-info-id="' + item.id + '">' +
+              '<svg width="12" height="12" viewBox="0 0 16 16" fill="none">' +
+                '<circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.2"/>' +
+                '<path d="M8 7v4M8 5.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
+              '</svg>' +
+            '</button>' +
+          '</div>' +
+          '<div class="detail hidden" id="detail-' + item.id + '">' +
+            '<div class="detail-col">' +
+              '<div class="detail-label">Original</div>' +
+              '<div class="detail-text">' + escapeHtml(item.raw_text) + '</div>' +
+            '</div>' +
+            '<div class="detail-col">' +
+              '<div class="detail-label">Cleaned</div>' +
+              '<div class="detail-text">' + escapeHtml(item.text) + '</div>' +
+            '</div>' +
+            (hasTimings ? '<div class="detail-timing">STT ' + (item.transcribe_ms / 1000).toFixed(1) + 's · AI ' + (item.cleanup_ms / 1000).toFixed(1) + 's · Total ' + ((item.transcribe_ms + item.cleanup_ms) / 1000).toFixed(1) + 's</div>' : "") +
+          '</div>';
+        }).join("");
+
+        list.querySelectorAll(".item-content").forEach(el => {
+          el.addEventListener("click", async () => {
+            const id = el.parentElement.dataset.id;
+            try {
+              await invoke("copy_history_item", { id });
+              el.querySelector(".item-text").textContent = "Copied!";
+              setTimeout(() => render(), 800);
+            } catch (_) {}
+          });
+        });
+
+        list.querySelectorAll(".item-info").forEach(btn => {
+          btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const id = btn.dataset.infoId;
+            const detail = document.getElementById("detail-" + id);
+            if (detail) detail.classList.toggle("hidden");
+          });
+        });
+      } catch (_) {}
+    }
+
+    document.getElementById("btn-clear").addEventListener("click", async () => {
+      try {
+        await invoke("clear_history");
+        render();
+      } catch (_) {}
+    });
+
+    listen("transcription-complete", () => render());
+
+    render();
+  </script>
+</body>
+</html>

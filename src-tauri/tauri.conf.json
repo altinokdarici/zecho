@@ -12,8 +12,8 @@
       {
         "label": "pill",
         "title": "Zecho",
-        "width": 340,
-        "height": 460,
+        "width": 220,
+        "height": 52,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,
@@ -29,6 +29,17 @@
         "height": 680,
         "decorations": true,
         "resizable": false,
+        "visible": false,
+        "center": true
+      },
+      {
+        "label": "history",
+        "title": "Zecho History",
+        "url": "history.html",
+        "width": 300,
+        "height": 500,
+        "decorations": true,
+        "resizable": true,
         "visible": false,
         "center": true
       },

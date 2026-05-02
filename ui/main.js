@@ -10,7 +10,6 @@ const { listen } = window.__TAURI__.event;
 
 let isRecording = false;
 let recordingLocked = false;
-let historyVisible = false;
 let waveformInterval = null;
 let fnHoldTimer = null;
 let lastFnDown = 0;
@@ -159,112 +158,8 @@ function handleFnUp() {
   }
 }
 
-// ── Utility ──
-
-function formatTime(isoString) {
-  const d = new Date(isoString);
-  const now = new Date();
-  const diff = now - d;
-  if (diff < 60000) return "Just now";
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-function escapeHtml(str) {
-  const div = document.createElement("div");
-  div.textContent = str;
-  return div.innerHTML;
-}
-
-async function renderHistory() {
-  const list = $("#history-list");
-  const empty = $("#history-empty");
-
-  try {
-    const items = await invoke("get_history");
-    if (items.length === 0) {
-      list.innerHTML = "";
-      empty.classList.remove("hidden");
-      return;
-    }
-
-    empty.classList.add("hidden");
-    list.innerHTML = items
-      .map(
-        (item) => {
-          const hasTimings = item.transcribe_ms > 0 || item.cleanup_ms > 0;
-          const timingHtml = hasTimings
-            ? `<span class="history-timing">STT ${(item.transcribe_ms / 1000).toFixed(1)}s + AI ${(item.cleanup_ms / 1000).toFixed(1)}s</span>`
-            : "";
-          return `
-      <div class="history-item" data-id="${item.id}">
-        <div class="history-item-content">
-          <div class="history-text">${escapeHtml(item.text)}</div>
-          <div class="history-meta">
-            <span class="history-time">${formatTime(item.created_at)}</span>
-            ${timingHtml}
-          </div>
-        </div>
-        <button class="history-info" data-info-id="${item.id}">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-            <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.2"/>
-            <path d="M8 7v4M8 5.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-          </svg>
-        </button>
-      </div>
-      <div class="history-detail hidden" id="detail-${item.id}">
-        <div class="detail-col">
-          <div class="detail-label">Original</div>
-          <div class="detail-text">${escapeHtml(item.raw_text)}</div>
-        </div>
-        <div class="detail-col">
-          <div class="detail-label">Cleaned</div>
-          <div class="detail-text">${escapeHtml(item.text)}</div>
-        </div>
-        ${hasTimings ? `<div class="detail-timing">STT ${(item.transcribe_ms / 1000).toFixed(1)}s &middot; AI ${(item.cleanup_ms / 1000).toFixed(1)}s &middot; Total ${((item.transcribe_ms + item.cleanup_ms) / 1000).toFixed(1)}s</div>` : ""}
-      </div>`;
-        }
-      )
-      .join("");
-
-    list.querySelectorAll(".history-item-content").forEach((el) => {
-      el.addEventListener("click", async () => {
-        const id = el.parentElement.dataset.id;
-        try {
-          await invoke("copy_history_item", { id });
-          el.querySelector(".history-text").textContent = "Copied!";
-          setTimeout(() => renderHistory(), 800);
-        } catch (err) {
-          console.error("Copy error:", err);
-        }
-      });
-    });
-
-    list.querySelectorAll(".history-info").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const id = btn.dataset.infoId;
-        const detail = document.getElementById(`detail-${id}`);
-        if (detail) {
-          detail.classList.toggle("hidden");
-        }
-      });
-    });
-  } catch (err) {
-    console.error("History error:", err);
-  }
-}
-
 function toggleHistory() {
-  historyVisible = !historyVisible;
-  const panel = $("#history-panel");
-  if (historyVisible) {
-    panel.classList.remove("hidden");
-    renderHistory();
-  } else {
-    panel.classList.add("hidden");
-  }
+  invoke("toggle_history").catch(() => {});
 }
 
 // ── Event listeners ──
@@ -272,19 +167,6 @@ function toggleHistory() {
 $("#btn-history").addEventListener("click", (e) => {
   e.stopPropagation();
   toggleHistory();
-});
-
-$("#history-close").addEventListener("click", () => {
-  if (historyVisible) toggleHistory();
-});
-
-$("#history-clear").addEventListener("click", async () => {
-  try {
-    await invoke("clear_history");
-    renderHistory();
-  } catch (err) {
-    console.error("Clear error:", err);
-  }
 });
 
 $("#btn-settings").addEventListener("click", async (e) => {
@@ -325,7 +207,6 @@ listen("toggle-recording", () => {
 listen("transcription-complete", () => {
   setState("done");
   setTimeout(() => setState("idle"), 1200);
-  if (historyVisible) renderHistory();
 });
 listen("transcription-error", (event) => {
   console.error("Transcription error:", event.payload);
@@ -340,12 +221,8 @@ $("#pill").addEventListener("mousedown", async (e) => {
   try {
     await invoke("start_drag");
   } catch (_) {}
+  invoke("persist_pill_position").catch(() => {});
 });
-
-// ── Dynamic window sizing ──
-// Keep the window small (just the pill) when idle. Expand when history opens.
-// This avoids transparent area mouse issues — the window IS the pill.
-
 
 // ── First-run setup ──
 

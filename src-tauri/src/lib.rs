@@ -265,6 +265,13 @@ fn start_drag(window: tauri::WebviewWindow) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn persist_pill_position(app: tauri::AppHandle, state: tauri::State<'_, AppState>) {
+    if let Some(window) = app.get_webview_window("pill") {
+        save_pill_position_from_window(&window, &state);
+    }
+}
+
+#[tauri::command]
 fn check_accessibility() -> bool {
     accessibility::is_accessibility_enabled()
 }
@@ -387,6 +394,48 @@ fn setup_download_models(app: tauri::AppHandle) {
 }
 
 #[tauri::command]
+fn toggle_history(app: tauri::AppHandle) {
+    if let Some(hist) = app.get_webview_window("history") {
+        if hist.is_visible().unwrap_or(false) {
+            hist.hide().ok();
+            return;
+        }
+
+        if let Some(pill) = app.get_webview_window("pill") {
+            if let (Ok(pill_pos), Ok(pill_size), Ok(hist_size)) = (
+                pill.outer_position(),
+                pill.outer_size(),
+                hist.outer_size(),
+            ) {
+                let hist_w = hist_size.width as i32;
+                let hist_h = hist_size.height as i32;
+                let pill_cx = pill_pos.x + pill_size.width as i32 / 2;
+                let mut x = pill_cx - hist_w / 2;
+                let mut y = pill_pos.y - hist_h - 8;
+
+                if let Ok(Some(monitor)) = pill.current_monitor() {
+                    let screen = monitor.size();
+                    let screen_pos = monitor.position();
+                    let sw = screen.width as i32;
+                    let sh = screen.height as i32;
+                    if x < screen_pos.x { x = screen_pos.x; }
+                    if x + hist_w > screen_pos.x + sw { x = screen_pos.x + sw - hist_w; }
+                    if y < screen_pos.y { y = screen_pos.y; }
+                    if y + hist_h > screen_pos.y + sh { y = screen_pos.y + sh - hist_h; }
+                }
+
+                hist.set_position(tauri::Position::Physical(
+                    tauri::PhysicalPosition { x, y },
+                )).ok();
+            }
+        }
+
+        hist.show().ok();
+        hist.set_focus().ok();
+    }
+}
+
+#[tauri::command]
 fn hide_setup(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("setup") {
         window.hide().map_err(|e| e.to_string())?;
@@ -503,8 +552,8 @@ fn position_pill_window(window: &tauri::WebviewWindow, state: &AppState) {
     };
     let screen = monitor.size();
     let scale = monitor.scale_factor();
-    let win_h = window.outer_size().map(|s| s.height as i32).unwrap_or((420.0 * scale) as i32);
-    let win_w = window.outer_size().map(|s| s.width as i32).unwrap_or((280.0 * scale) as i32);
+    let win_h = window.outer_size().map(|s| s.height as i32).unwrap_or((52.0 * scale) as i32);
+    let win_w = window.outer_size().map(|s| s.width as i32).unwrap_or((220.0 * scale) as i32);
 
     let settings = state.settings.lock().ok();
     let saved = settings.as_ref().and_then(|s| {
@@ -582,6 +631,8 @@ pub fn run() {
             cancel_recording,
             get_audio_level,
             start_drag,
+            persist_pill_position,
+            toggle_history,
             get_history,
             copy_history_item,
             delete_history_item,
@@ -608,6 +659,15 @@ pub fn run() {
         .setup(|app| {
             create_tray_icon(app).ok();
             register_global_shortcut(app);
+
+            // Position pill BEFORE converting to NSPanel (set_position doesn't work on NSPanels)
+            {
+                let state: tauri::State<'_, AppState> = app.state();
+                if let Some(window) = app.get_webview_window("pill") {
+                    position_pill_window(&window, &state);
+                }
+            }
+
             macos_panel::make_panel(app);
             init_models_async(app.handle().clone());
 
@@ -617,13 +677,13 @@ pub fn run() {
                 hotkey::start_fn_key_listener(app.handle().clone());
             }
 
-            // Show setup window if anything is missing
+            // Show setup window only on first run
             {
-                let whisper_ready = models::is_downloaded(models::default_whisper_model());
-                let cleanup_ready = ["qwen25-1.5b", "qwen25-3b"].iter()
-                    .any(|id| models::get_model(id).map(|m| models::is_downloaded(m)).unwrap_or(false));
-                let accessibility = accessibility::is_accessibility_enabled();
-                if !whisper_ready || !cleanup_ready || !accessibility {
+                let setup_complete = app.state::<AppState>()
+                    .settings.lock()
+                    .map(|s| s.setup_complete)
+                    .unwrap_or(false);
+                if !setup_complete {
                     if let Some(pill) = app.get_webview_window("pill") {
                         pill.hide().ok();
                     }
@@ -653,28 +713,9 @@ pub fn run() {
                 }
             });
 
-            // Delay positioning so the window is fully created first
-            let handle = app.handle().clone();
-            let handle2 = app.handle().clone();
-            std::thread::spawn(move || {
-                std::thread::sleep(std::time::Duration::from_millis(300));
-                let state: tauri::State<'_, AppState> = handle.state();
-                if let Some(window) = handle.get_webview_window("pill") {
-                    position_pill_window(&window, &state);
-                }
-            });
-
-            // Listen for window move events to persist position
-            if let Some(window) = app.get_webview_window("pill") {
-                window.on_window_event(move |event| {
-                    if let tauri::WindowEvent::Moved(_) = event {
-                        let state: tauri::State<'_, AppState> = handle2.state();
-                        if let Some(win) = handle2.get_webview_window("pill") {
-                            save_pill_position_from_window(&win, &state);
-                        }
-                    }
-                });
-            }
+            // Note: pill position is set before make_panel() above.
+            // Position persistence is handled by persist_pill_position command
+            // called from the frontend after drag ends.
             Ok(())
         })
         .run(tauri::generate_context!())
