@@ -28,6 +28,7 @@
       -webkit-user-select: none;
       user-select: none;
       padding: 0;
+      overflow-y: auto;
     }
 
     /* ── Header ── */
@@ -52,7 +53,7 @@
 
     /* ── Sections ── */
     .section {
-      padding: 0 20px;
+      padding: 0 28px;
       margin-bottom: 28px;
     }
 
@@ -78,14 +79,14 @@
       gap: 10px;
     }
 
-    .card-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
-    .card-grid.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+    .card-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+    .card-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
 
     .option-card {
       background: var(--surface);
       border: 2px solid transparent;
       border-radius: var(--card-radius);
-      padding: 14px 14px 12px;
+      padding: 16px;
       cursor: pointer;
       transition: all 0.18s ease;
       display: flex;
@@ -103,23 +104,23 @@
     }
 
     .option-card .card-title {
-      font-size: 15px;
-      font-weight: 600;
+      font-size: 16px;
+      font-weight: 650;
       letter-spacing: -0.01em;
     }
 
     .option-card .card-desc {
-      font-size: 11px;
+      font-size: 12px;
       color: var(--text-secondary);
       line-height: 1.4;
     }
 
     .option-card .card-preview {
-      margin-top: 8px;
-      padding: 10px;
+      margin-top: auto;
+      padding: 10px 12px;
       background: var(--preview-bg);
       border-radius: 8px;
-      font-size: 11px;
+      font-size: 12px;
       line-height: 1.5;
       color: var(--preview-text);
     }
@@ -421,7 +422,7 @@
   <!-- Cleanup Level -->
   <div class="section">
     <div class="section-label">Auto Cleanup</div>
-    <div class="card-grid cols-4" id="cleanup-grid">
+    <div class="card-grid cols-2" id="cleanup-grid">
       <div class="option-card" data-level="None">
         <div class="card-title">None</div>
         <div class="card-desc">Transcribes exactly what you said</div>
