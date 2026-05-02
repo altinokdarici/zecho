@@ -413,9 +413,18 @@
     async function finish() {
       try { await invoke("complete_setup"); } catch (_) {}
       try {
-        const win = window.__TAURI__.webviewWindow.getCurrentWebviewWindow();
+        const { getCurrentWindow } = window.__TAURI__.window;
+        const win = getCurrentWindow();
         await win.hide();
-      } catch (_) {}
+      } catch (e) {
+        try {
+          const win = window.__TAURI__.webviewWindow.getCurrentWebviewWindow();
+          await win.hide();
+        } catch (_) {
+          // Last resort — tell the backend to hide us
+          await invoke("hide_setup");
+        }
+      }
     }
 
     $("#btn-skip").addEventListener("click", finish);

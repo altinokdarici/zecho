@@ -352,6 +352,14 @@ fn setup_download_models(app: tauri::AppHandle) {
 }
 
 #[tauri::command]
+fn hide_setup(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("setup") {
+        window.hide().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
 fn complete_setup(state: tauri::State<'_, AppState>) -> Result<(), String> {
     let mut settings = state.settings.lock().map_err(|e| e.to_string())?;
     settings.setup_complete = true;
@@ -542,6 +550,7 @@ pub fn run() {
             check_setup,
             setup_download_models,
             complete_setup,
+            hide_setup,
             check_for_updates,
         ])
         .setup(|app| {
