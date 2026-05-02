@@ -75,6 +75,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CMAKE_OSX_DEPLOYMENT_TARGET: "12.0"
           MACOSX_DEPLOYMENT_TARGET: "12.0"
+          CMAKE_C_FLAGS: "-march=armv8.2-a"
+          CMAKE_CXX_FLAGS: "-march=armv8.2-a"
         with:
           tagName: v${{ inputs.version }}
           releaseName: "Zecho v${{ inputs.version }}"
