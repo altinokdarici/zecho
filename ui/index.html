@@ -38,14 +38,14 @@
     <div id="pill">
       <!-- Collapsed (default): thin bar with subtle indicator -->
       <div id="state-idle">
-        <button id="btn-history" class="pill-action">
+        <button id="btn-history" class="pill-action" data-tooltip="History">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
             <path d="M8 3.5V8L10.5 10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
             <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5" fill="none"/>
           </svg>
         </button>
         <div class="idle-dot"></div>
-        <button id="btn-settings" class="pill-action">
+        <button id="btn-settings" class="pill-action" data-tooltip="Settings">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
             <path d="M6.6 1.2h2.8l.4 1.9.7.3 1.7-1 2 2-1 1.7.3.7 1.9.4v2.8l-1.9.4-.3.7 1 1.7-2 2-1.7-1-.7.3-.4 1.9H6.6l-.4-1.9-.7-.3-1.7 1-2-2 1-1.7-.3-.7L.6 9.8V7l1.9-.4.3-.7-1-1.7 2-2 1.7 1 .7-.3.4-1.9z" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linejoin="round"/>
             <circle cx="8" cy="8.4" r="2" stroke="currentColor" stroke-width="1.2" fill="none"/>
@@ -55,13 +55,13 @@
 
       <!-- Recording: cancel, waveform, stop -->
       <div id="state-recording" class="hidden">
-        <button id="btn-cancel" class="rec-btn cancel-btn">
+        <button id="btn-cancel" class="rec-btn cancel-btn" data-tooltip="Cancel">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
             <path d="M3.5 3.5L10.5 10.5M10.5 3.5L3.5 10.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
         </button>
         <canvas id="waveform" width="120" height="28"></canvas>
-        <button id="btn-stop" class="rec-btn stop-btn">
+        <button id="btn-stop" class="rec-btn stop-btn" data-tooltip="Stop">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
             <rect x="1" y="1" width="10" height="10" rx="2" fill="currentColor"/>
           </svg>
