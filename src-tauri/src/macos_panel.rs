@@ -1,60 +1,87 @@
 #[cfg(target_os = "macos")]
-pub fn make_panel(window: &tauri::WebviewWindow) {
-    use cocoa::appkit::{NSWindow, NSWindowCollectionBehavior};
-    use cocoa::base::{id, BOOL, YES, NO};
-    use objc::declare::ClassDecl;
-    use objc::runtime::{Class, Object, Sel};
+use tauri::Manager;
+#[cfg(target_os = "macos")]
+use tauri_nspanel::{
+    tauri_panel, CollectionBehavior, ManagerExt, PanelLevel, StyleMask, TrackingAreaOptions,
+    WebviewWindowExt,
+};
 
-    let ns_window: id = window.ns_window().unwrap() as id;
+#[cfg(target_os = "macos")]
+tauri_panel! {
+    panel!(ZechoPanel {
+        config: {
+            can_become_main_window: false,
+            can_become_key_window: true,
+            becomes_key_only_if_needed: true,
+            is_floating_panel: true
+        }
+        with: {
+            tracking_area: {
+                options: TrackingAreaOptions::new()
+                    .active_always()
+                    .mouse_entered_and_exited()
+                    .mouse_moved()
+                    .cursor_update(),
+                auto_resize: true
+            }
+        }
+    })
 
-    unsafe {
-        // Keep the window visible when the app is not active
-        ns_window.setHidesOnDeactivate_(NO);
-
-        // Accept mouse moved events
-        let _: () = msg_send![ns_window, setAcceptsMouseMovedEvents: YES];
-
-        // Float above other windows
-        let _: () = msg_send![ns_window, setLevel: 5i64]; // kCGFloatingWindowLevel
-
-        // Join all spaces
-        ns_window.setCollectionBehavior_(
-            NSWindowCollectionBehavior::NSWindowCollectionBehaviorCanJoinAllSpaces
-                | NSWindowCollectionBehavior::NSWindowCollectionBehaviorFullScreenAuxiliary
-                | NSWindowCollectionBehavior::NSWindowCollectionBehaviorStationary
-                | NSWindowCollectionBehavior::NSWindowCollectionBehaviorIgnoresCycle,
-        );
-
-        // Make the webview's NSWindow accept first mouse — this is the key fix.
-        // By default, clicking an unfocused NSWindow first activates it, THEN processes
-        // the click. acceptsFirstMouse makes it process the click immediately.
-        // We achieve this by adding a tracking area that covers the entire window content.
-        let content_view: id = msg_send![ns_window, contentView];
-        let bounds: cocoa::foundation::NSRect = msg_send![content_view, bounds];
-
-        // Create NSTrackingArea with mouse moved/entered/exited events, active always
-        let tracking_opts: u64 =
-            0x01   // NSTrackingMouseEnteredAndExited
-            | 0x02  // NSTrackingMouseMoved
-            | 0x80  // NSTrackingActiveAlways (receive events even when not key window)
-            | 0x08; // NSTrackingInVisibleRect
-
-        let tracking_class = Class::get("NSTrackingArea").unwrap();
-        let tracking_area: id = msg_send![tracking_class, alloc];
-        let tracking_area: id = msg_send![
-            tracking_area,
-            initWithRect: bounds
-            options: tracking_opts
-            owner: content_view
-            userInfo: cocoa::base::nil
-        ];
-
-        let _: () = msg_send![content_view, addTrackingArea: tracking_area];
-    }
+    panel_event!(ZechoPanelEventHandler {})
 }
 
 #[cfg(target_os = "macos")]
-use objc::{msg_send, sel, sel_impl};
+pub fn make_panel(app: &tauri::App) {
+    use tauri::Manager;
+
+    let window = match app.get_webview_window("pill") {
+        Some(w) => w,
+        None => {
+            eprintln!("Pill window not found for NSPanel conversion");
+            return;
+        }
+    };
+
+    let panel = match window.to_panel::<ZechoPanel>() {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("Failed to convert pill to NSPanel: {:?}", e);
+            return;
+        }
+    };
+
+    let handler = ZechoPanelEventHandler::new();
+
+    // Make key on mouse enter so hover/click work
+    let handle = app.handle().clone();
+    handler.on_mouse_entered(move |_event| {
+        if let Ok(p) = handle.get_webview_panel("pill") {
+            p.make_key_window();
+        }
+    });
+
+    // Resign key on mouse exit so the previous app regains focus
+    let handle = app.handle().clone();
+    handler.on_mouse_exited(move |_event| {
+        if let Ok(p) = handle.get_webview_panel("pill") {
+            p.resign_key_window();
+        }
+    });
+
+    panel.set_level(PanelLevel::Floating.value());
+    panel.set_style_mask(StyleMask::empty().nonactivating_panel().into());
+    panel.set_collection_behavior(
+        CollectionBehavior::new()
+            .full_screen_auxiliary()
+            .can_join_all_spaces()
+            .into(),
+    );
+    panel.set_hides_on_deactivate(false);
+    panel.set_works_when_modal(true);
+    panel.set_event_handler(Some(handler.as_ref()));
+
+    println!("Pill converted to NSPanel with hover activation");
+}
 
 #[cfg(not(target_os = "macos"))]
-pub fn make_panel(_window: &tauri::WebviewWindow) {}
+pub fn make_panel(_app: &tauri::App) {}

@@ -28,6 +28,7 @@ core-graphics = "0.24"
 core-foundation = "0.10"
 cocoa = "0.26"
 objc = "0.2"
+tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", branch = "v2.1" }
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

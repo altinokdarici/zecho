@@ -447,6 +447,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_nspanel::init())
         .manage(state)
         .invoke_handler(tauri::generate_handler![
             start_recording,
@@ -474,10 +475,8 @@ pub fn run() {
             register_global_shortcut(app);
             hotkey::start_fn_key_listener(app.handle().clone());
 
-            // Make the pill window a non-activating panel (receives mouse without stealing focus)
-            if let Some(window) = app.get_webview_window("pill") {
-                macos_panel::make_panel(&window);
-            }
+            // Convert pill to NSPanel (receives mouse without stealing focus)
+            macos_panel::make_panel(app);
 
             // Start cleanup worker thread — loads model and processes requests via channel
             let cleanup_handle = app.handle().clone();
