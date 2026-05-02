@@ -95,6 +95,7 @@ fn process_recording(state: &AppState, samples: Vec<f32>) -> Result<String, Stri
         &settings.writing_style,
         &settings.cleanup_level,
         settings.custom_prompt.as_deref(),
+        &settings.active_cleanup_model,
     ) {
         Ok(t) => t,
         Err(e) => {
@@ -109,8 +110,13 @@ fn process_recording(state: &AppState, samples: Vec<f32>) -> Result<String, Stri
     let mut clipboard = arboard::Clipboard::new().map_err(|e| e.to_string())?;
     clipboard.set_text(&text).map_err(|e| e.to_string())?;
 
+    let settings2 = state.settings.lock().map_err(|e| e.to_string())?;
+    let stt_model = settings2.active_whisper_model.clone();
+    let cleanup_model = settings2.active_cleanup_model.clone();
+    drop(settings2);
+
     let mut history = state.history.lock().map_err(|e| e.to_string())?;
-    history.add(text.clone(), raw_text, transcribe_ms, cleanup_ms);
+    history.add(text.clone(), raw_text, transcribe_ms, cleanup_ms, stt_model, cleanup_model);
     drop(history);
 
     let auto_paste = state.settings.lock().map(|s| s.auto_paste).unwrap_or(false);
@@ -214,12 +220,24 @@ fn download_model(model_id: String, app: tauri::AppHandle) -> Result<(), String>
         let info = info.clone();
         let app = app.clone();
         move || {
+            eprintln!("Starting download: {} ({})", info.name, info.url);
             app.emit("model-download-started", &info.id).ok();
-            match models::download_model_blocking(&info) {
+            let app2 = app.clone();
+            let id = info.id.to_string();
+            let mut last_pct: u64 = 0;
+            match models::download_model_blocking(&info, move |downloaded, total| {
+                let pct = if total > 0 { downloaded * 100 / total } else { 0 };
+                if pct != last_pct {
+                    last_pct = pct;
+                    app2.emit("model-download-progress", (&id, pct)).ok();
+                }
+            }) {
                 Ok(_) => {
+                    eprintln!("Download complete: {}", info.name);
                     app.emit("model-download-complete", &info.id).ok();
                 }
                 Err(e) => {
+                    eprintln!("Download failed: {} - {}", info.name, e);
                     app.emit("model-download-error", &e).ok();
                 }
             }
@@ -314,7 +332,7 @@ struct SetupStatus {
 #[tauri::command]
 fn check_setup() -> SetupStatus {
     let whisper = models::default_whisper_model();
-    let cleanup_candidates = ["qwen25-1.5b", "qwen25-3b"];
+    let cleanup_candidates = ["gemma4-e2b", "gemma4-e4b", "qwen25-1.5b", "qwen25-3b"];
     let cleanup_ready = cleanup_candidates
         .iter()
         .any(|id| models::get_model(id).map(|m| models::is_downloaded(m)).unwrap_or(false));
@@ -333,7 +351,7 @@ fn setup_download_models(app: tauri::AppHandle) {
         let whisper = models::default_whisper_model();
         if !models::is_downloaded(whisper) {
             app.emit("setup-progress", "Downloading speech model...").ok();
-            match models::download_model_blocking(whisper) {
+            match models::download_model_blocking(whisper, |_, _| {}) {
                 Ok(_) => {
                     app.emit("setup-progress", "Speech model ready").ok();
                     {
@@ -349,7 +367,7 @@ fn setup_download_models(app: tauri::AppHandle) {
             }
         }
 
-        let cleanup_candidates = ["qwen25-1.5b", "qwen25-3b"];
+        let cleanup_candidates = ["gemma4-e2b", "gemma4-e4b", "qwen25-1.5b", "qwen25-3b"];
         let mut cleanup_downloaded = false;
         for id in &cleanup_candidates {
             if let Some(info) = models::get_model(id) {
@@ -362,7 +380,7 @@ fn setup_download_models(app: tauri::AppHandle) {
         if !cleanup_downloaded {
             if let Some(info) = models::get_model("qwen25-1.5b") {
                 app.emit("setup-progress", "Downloading cleanup model...").ok();
-                match models::download_model_blocking(info) {
+                match models::download_model_blocking(info, |_, _| {}) {
                     Ok(_) => {
                         app.emit("setup-progress", "Cleanup model ready").ok();
                     }
@@ -731,7 +749,7 @@ pub fn run() {
             let cleanup_handle = app.handle().clone();
             std::thread::spawn(move || {
                 std::thread::sleep(std::time::Duration::from_secs(3));
-                let cleanup_candidates = ["qwen25-1.5b", "qwen25-3b"];
+                let cleanup_candidates = ["gemma4-e2b", "gemma4-e4b", "qwen25-1.5b", "qwen25-3b"];
                 for id in &cleanup_candidates {
                     if let Some(info) = models::get_model(id) {
                         let path = models::model_path(info);
@@ -748,6 +766,8 @@ pub fn run() {
 
             for label in &["history", "settings"] {
                 if let Some(win) = app.get_webview_window(label) {
+                    #[cfg(debug_assertions)]
+                    win.open_devtools();
                     let handle = win.clone();
                     win.on_window_event(move |event| {
                         if let tauri::WindowEvent::CloseRequested { api, .. } = event {

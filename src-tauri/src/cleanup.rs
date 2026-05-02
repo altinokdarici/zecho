@@ -7,6 +7,7 @@ pub struct CleanupRequest {
     pub style: WritingStyle,
     pub level: CleanupLevel,
     pub custom_prompt: Option<String>,
+    pub model_id: String,
     pub reply: mpsc::Sender<Result<String, String>>,
 }
 
@@ -64,7 +65,7 @@ impl TextCleaner {
             
 
             for req in rx {
-                let prompt = build_prompt(&req.raw_text, &req.style, &req.level, req.custom_prompt.as_deref());
+                let prompt = build_prompt(&req.raw_text, &req.style, &req.level, req.custom_prompt.as_deref(), &req.model_id);
                 let escaped = prompt.replace('\n', "\\n");
 
                 if writeln!(stdin, "{}", escaped).is_err() {
@@ -85,7 +86,12 @@ impl TextCleaner {
                     Ok(_) => {}
                 }
 
-                let result = response.trim().replace("\\n", "\n");
+                let result = response.trim()
+                    .replace("\\n", "\n")
+                    .replace("<end_of_turn>", "")
+                    .replace("<|im_end|>", "")
+                    .replace("<|endoftext|>", "")
+                    .trim().to_string();
                 if result.is_empty() {
                     let _ = req.reply.send(Ok(req.raw_text.clone()));
                 } else {
@@ -110,6 +116,7 @@ impl TextCleaner {
         style: &WritingStyle,
         level: &CleanupLevel,
         custom_prompt: Option<&str>,
+        model_id: &str,
     ) -> Result<String, String> {
         if *level == CleanupLevel::None {
             return Ok(raw_text.to_string());
@@ -122,6 +129,7 @@ impl TextCleaner {
                 style: style.clone(),
                 level: level.clone(),
                 custom_prompt: custom_prompt.map(|s| s.to_string()),
+                model_id: model_id.to_string(),
                 reply: reply_tx,
             };
 
@@ -147,35 +155,51 @@ pub fn build_prompt(
     style: &WritingStyle,
     level: &CleanupLevel,
     custom_prompt: Option<&str>,
+    model_id: &str,
 ) -> String {
     let style_instruction = match style {
-        WritingStyle::Formal => "Formatting: capitalize properly, use full punctuation.",
-        WritingStyle::Casual => "Formatting: capitalize normally, light punctuation.",
-        WritingStyle::VeryCasual => "Formatting: all lowercase, minimal punctuation.",
+        WritingStyle::Formal => "Capitalize properly, use full punctuation.",
+        WritingStyle::Casual => "Capitalize normally, light punctuation.",
+        WritingStyle::VeryCasual => "All lowercase, minimal punctuation.",
     };
 
-    let level_instruction = match level {
+    let level_rules = match level {
         CleanupLevel::None => "Do not change any words. Only fix capitalization and punctuation.",
-        CleanupLevel::Light => "ONLY remove filler words: um, uh, uhh, like, you know, basically, so. Keep ALL other words exactly as spoken.",
-        CleanupLevel::Medium => "Remove filler words. If the speaker corrects themselves (says one thing then changes it), keep only the final version. Keep ALL other words exactly as spoken.",
-        CleanupLevel::High => "Remove filler words. Resolve self-corrections (keep final version only). You may tighten phrasing slightly, but NEVER change the meaning or remove content the speaker intended to say.",
+        CleanupLevel::Light => "Remove filler words (um, uh, like, you know, basically, so). Keep all other words exactly as spoken.",
+        CleanupLevel::Medium => "Remove filler words. Resolve self-corrections (keep the corrected version only).",
+        CleanupLevel::High => "Remove filler words. Resolve self-corrections. You may tighten phrasing slightly but never change meaning.",
+    };
+
+    let examples = match level {
+        CleanupLevel::Medium | CleanupLevel::High => "\n\nSelf-correction examples:\n\
+            - \"I want red no I mean blue\" → \"I want blue\"\n\
+            - \"use Java actually no use Python\" → \"use Python\"\n\
+            - \"make it bigger well actually smaller\" → \"make it smaller\"\n\
+            - \"at 3 sorry 4 o'clock\" → \"at 4 o'clock\"",
+        _ => "",
     };
 
     let custom = custom_prompt
-        .map(|p| format!("\nExtra: {}", p))
+        .map(|p| format!("\n{}", p))
         .unwrap_or_default();
 
-    format!(
-        "<|im_start|>system\nYou fix voice transcriptions. You must keep the speaker's words and meaning intact.\n\n\
-        RULES:\n\
+    let system = format!(
+        "You clean voice transcriptions. Rules:\n\
         1. {}\n\
         2. {}\n\
-        3. NEVER add words the speaker didn't say.\n\
-        4. NEVER rephrase or summarize. Keep the speaker's own words.\n\
-        5. NEVER remove content — only remove filler and resolved self-corrections.\n\
-        6. Return ONLY the cleaned text. No explanations, no quotes.{}<|im_end|>\n\
-        <|im_start|>user\n{}<|im_end|>\n\
-        <|im_start|>assistant\n",
-        level_instruction, style_instruction, custom, raw_text
-    )
+        3. Output ONLY the cleaned text{}{}\n",
+        level_rules, style_instruction, examples, custom
+    );
+
+    if model_id.contains("gemma") {
+        format!(
+            "<start_of_turn>user\n{}\nNow clean:\n{}<end_of_turn>\n<start_of_turn>model\n",
+            system, raw_text
+        )
+    } else {
+        format!(
+            "<|im_start|>system\n{}<|im_end|>\n<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant\n",
+            system, raw_text
+        )
+    }
 }

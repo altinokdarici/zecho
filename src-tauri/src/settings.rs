@@ -72,7 +72,28 @@ impl Settings {
             .and_then(|s| serde_json::from_str(&s).ok())
             .unwrap_or_default();
         settings.path = path;
+        settings.validate_active_models();
         settings
+    }
+
+    fn validate_active_models(&mut self) {
+        use crate::models;
+
+        if let Some(info) = models::get_model(&self.active_cleanup_model) {
+            if models::is_downloaded(info) {
+                return;
+            }
+        }
+        let candidates = ["qwen25-1.5b", "qwen25-3b", "gemma4-e2b", "gemma4-e4b"];
+        for id in &candidates {
+            if let Some(info) = models::get_model(id) {
+                if models::is_downloaded(info) {
+                    self.active_cleanup_model = id.to_string();
+                    self.save().ok();
+                    return;
+                }
+            }
+        }
     }
 
     pub fn save(&self) -> Result<(), String> {

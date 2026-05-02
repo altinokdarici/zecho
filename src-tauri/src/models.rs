@@ -78,6 +78,28 @@ pub const AVAILABLE_MODELS: &[ModelInfo] = &[
         url: "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf",
         model_type: ModelType::Cleanup,
     },
+    ModelInfo {
+        id: "gemma4-e2b",
+        name: "Gemma 4 E2B",
+        description: "Google Gemma 4 — fast, high-quality cleanup.",
+        size_mb: 2963,
+        quality_score: 9,
+        speed_score: 7,
+        filename: "gemma-4-E2B-it-Q4_K_M.gguf",
+        url: "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf",
+        model_type: ModelType::Cleanup,
+    },
+    ModelInfo {
+        id: "gemma4-e4b",
+        name: "Gemma 4 E4B",
+        description: "Google Gemma 4 — best quality, larger download.",
+        size_mb: 4747,
+        quality_score: 10,
+        speed_score: 5,
+        filename: "gemma-4-E4B-it-Q4_K_M.gguf",
+        url: "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf",
+        model_type: ModelType::Cleanup,
+    },
 ];
 
 pub fn model_dir() -> PathBuf {
@@ -135,7 +157,12 @@ pub fn list_models() -> Vec<ModelStatus> {
         .collect()
 }
 
-pub fn download_model_blocking(info: &ModelInfo) -> Result<PathBuf, String> {
+pub fn download_model_blocking(
+    info: &ModelInfo,
+    mut on_progress: impl FnMut(u64, u64),
+) -> Result<PathBuf, String> {
+    use std::io::{Read, Write};
+
     let path = model_path(info);
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
@@ -147,8 +174,24 @@ pub fn download_model_blocking(info: &ModelInfo) -> Result<PathBuf, String> {
         return Err(format!("Download failed with status: {}", response.status()));
     }
 
-    let bytes = response.bytes().map_err(|e| format!("Failed to read response: {}", e))?;
-    std::fs::write(&path, &bytes).map_err(|e| format!("Failed to write model file: {}", e))?;
+    let total = response.content_length().unwrap_or(info.size_mb as u64 * 1024 * 1024);
+    let tmp_path = path.with_extension("tmp");
+    let mut file = std::fs::File::create(&tmp_path).map_err(|e| format!("Failed to create file: {}", e))?;
+    let mut downloaded: u64 = 0;
+    let mut reader = response;
+    let mut buf = [0u8; 65536];
+
+    loop {
+        let n = reader.read(&mut buf).map_err(|e| format!("Read error: {}", e))?;
+        if n == 0 { break; }
+        file.write_all(&buf[..n]).map_err(|e| format!("Write error: {}", e))?;
+        downloaded += n as u64;
+        on_progress(downloaded, total);
+    }
+
+    file.flush().map_err(|e| e.to_string())?;
+    drop(file);
+    std::fs::rename(&tmp_path, &path).map_err(|e| format!("Failed to rename: {}", e))?;
 
     Ok(path)
 }

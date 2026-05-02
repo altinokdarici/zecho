@@ -9,7 +9,7 @@ name = "zecho_lib"
 crate-type = ["staticlib", "cdylib", "lib"]
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
+tauri = { version = "2", features = ["tray-icon", "macos-private-api", "devtools"] }
 tauri-plugin-updater = "2"
 tauri-plugin-global-shortcut = "2"
 serde = { version = "1", features = ["derive"] }

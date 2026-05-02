@@ -175,6 +175,23 @@
       color: var(--text-dim);
     }
 
+    .detail-models {
+      grid-column: 1 / -1;
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .detail-model-chip {
+      font-size: 10px;
+      font-family: "SF Mono", "Menlo", monospace;
+      color: var(--text-dim);
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 6px;
+    }
+
     .hidden { display: none !important; }
   </style>
 </head>
@@ -253,6 +270,10 @@
               '<div class="detail-text">' + escapeHtml(item.text) + '</div>' +
             '</div>' +
             (hasTimings ? '<div class="detail-timing">STT ' + (item.transcribe_ms / 1000).toFixed(1) + 's · AI ' + (item.cleanup_ms / 1000).toFixed(1) + 's · Total ' + ((item.transcribe_ms + item.cleanup_ms) / 1000).toFixed(1) + 's</div>' : "") +
+            (item.stt_model || item.cleanup_model ? '<div class="detail-models">' +
+              (item.stt_model ? '<span class="detail-model-chip">STT: ' + escapeHtml(item.stt_model) + '</span>' : '') +
+              (item.cleanup_model ? '<span class="detail-model-chip">Cleanup: ' + escapeHtml(item.cleanup_model) + '</span>' : '') +
+            '</div>' : '') +
           '</div>';
         }).join("");
 

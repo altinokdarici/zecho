@@ -256,6 +256,7 @@
     /* ── Model cards ── */
 
     .model-list { display: flex; flex-direction: column; gap: 8px; }
+    .settings-group + #cleanup-models-wrapper { margin-top: 8px; }
 
     .model-card {
       background: var(--surface);
@@ -295,6 +296,18 @@
 
     .model-desc { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
 
+    .model-id-chip {
+      display: inline-block;
+      font-size: 10px;
+      font-family: "SF Mono", "Menlo", monospace;
+      color: var(--text-secondary);
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      margin-top: 4px;
+    }
+
     .model-meta { display: flex; gap: 12px; margin-top: 6px; }
 
     .model-stat {
@@ -317,7 +330,7 @@
     .stat-dot.filled { background: var(--accent); }
     .stat-dot.filled.green { background: #30d158; }
 
-    .model-action { flex-shrink: 0; }
+    .model-action { flex-shrink: 0; display: flex; align-items: center; }
 
     .model-btn {
       padding: 6px 14px;
@@ -336,6 +349,15 @@
     .model-btn.select { background: var(--bg); color: var(--text-secondary); border: 1px solid var(--border); }
     .model-btn.select:hover { color: var(--text); border-color: rgba(255, 255, 255, 0.15); }
     .model-btn.downloading { background: var(--bg); color: var(--text-secondary); cursor: wait; }
+    .model-btn.cancel { background: rgba(255, 69, 58, 0.12); color: #ff453a; }
+    .model-btn.cancel:hover { background: rgba(255, 69, 58, 0.2); }
+
+    .download-pct {
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      color: var(--accent);
+      margin-right: 8px;
+    }
 
     .model-size { font-size: 11px; color: #636366; margin-top: 2px; }
 
@@ -433,7 +455,7 @@
 
       <div class="section">
         <div class="section-label">Text Cleanup</div>
-        <div class="settings-group" style="margin-bottom: 10px">
+        <div class="settings-group">
           <div class="setting-row">
             <span class="label">Enable AI cleanup</span>
             <label class="toggle">
@@ -606,11 +628,11 @@
 
       let actionHtml;
       if (!model.downloaded) {
-        actionHtml = `<button class="model-btn download" onclick="downloadModel('${model.id}')" id="btn-${model.id}">Download</button>`;
+        actionHtml = `<span class="download-pct" id="pct-${model.id}"></span><button class="model-btn download" data-download="${model.id}" id="btn-${model.id}">Download</button>`;
       } else if (isActive) {
         actionHtml = `<button class="model-btn active-btn">Active</button>`;
       } else {
-        actionHtml = `<button class="model-btn select" onclick="selectModel('${model.id}', '${model.model_type}')">Use</button>`;
+        actionHtml = `<button class="model-btn select" data-select="${model.id}" data-type="${model.model_type}">Use</button>`;
       }
 
       const recommended = model.description.includes("Recommended") ? '<span class="badge">Rec</span>' : "";
@@ -620,6 +642,7 @@
           <div class="model-info">
             <div class="model-name">${model.name} ${recommended}</div>
             <div class="model-desc">${model.description}</div>
+            <div class="model-id-chip">${model.id}</div>
             <div class="model-meta">
               <div class="model-stat">Quality ${qualityDots}</div>
               <div class="model-stat">Speed ${speedDots}</div>
@@ -636,7 +659,7 @@
     async function loadModels() {
       try {
         currentWhisperModel = settings.active_whisper_model || "whisper-base-en";
-        currentCleanupModel = settings.active_cleanup_model || "qwen25-1.5b";
+        currentCleanupModel = settings.active_cleanup_model;
         const models = await invoke("list_models");
 
         document.getElementById("whisper-models").innerHTML = models
@@ -648,23 +671,33 @@
           .filter((m) => m.model_type === "Cleanup")
           .map((m) => renderModelCard(m, m.id === currentCleanupModel))
           .join("");
+
+        document.querySelectorAll("[data-download]").forEach(function(btn) {
+          btn.addEventListener("click", function() { downloadModel(btn.dataset.download); });
+        });
+        document.querySelectorAll("[data-select]").forEach(function(btn) {
+          btn.addEventListener("click", function() { selectModel(btn.dataset.select, btn.dataset.type); });
+        });
       } catch (err) {
         console.error("Failed to load models:", err);
       }
     }
 
     async function downloadModel(modelId) {
-      const btn = document.getElementById(`btn-${modelId}`);
+      console.log("[settings] downloadModel called:", modelId);
+      var btn = document.getElementById("btn-" + modelId);
+      var pct = document.getElementById("pct-" + modelId);
       if (btn) {
-        btn.textContent = "Downloading...";
-        btn.className = "model-btn downloading";
-        btn.disabled = true;
+        btn.textContent = "Cancel";
+        btn.className = "model-btn cancel";
       }
+      if (pct) pct.textContent = "0%";
       try {
         await invoke("download_model", { modelId });
       } catch (err) {
-        console.error("Download error:", err);
-        if (btn) { btn.textContent = "Retry"; btn.className = "model-btn download"; btn.disabled = false; }
+        console.error("[settings] Download error:", err);
+        if (btn) { btn.textContent = "Retry"; btn.className = "model-btn download"; }
+        if (pct) pct.textContent = "";
       }
     }
 
@@ -686,11 +719,21 @@
       }
     }
 
-    listen("model-download-complete", () => loadModels());
-    listen("model-download-error", (event) => { console.error("Download failed:", event.payload); loadModels(); });
+    listen("model-download-progress", (event) => {
+      var [id, pct] = event.payload;
+      var el = document.getElementById("pct-" + id);
+      if (el) el.textContent = pct + "%";
+    });
+    listen("model-download-complete", (event) => {
+      console.log("[settings] download complete:", event.payload);
+      loadModels();
+    });
+    listen("model-download-error", (event) => {
+      console.error("[settings] download error:", event.payload);
+      loadModels();
+    });
 
-    loadSettings();
-    loadModels();
+    loadSettings().then(() => loadModels());
   </script>
 </body>
 </html>
