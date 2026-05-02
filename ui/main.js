@@ -345,9 +345,11 @@ async function resizeWindow(height) {
     const win = window.__TAURI__.webviewWindow.getCurrentWebviewWindow();
     const size = await win.outerSize();
     const pos = await win.outerPosition();
-    const newY = pos.y + size.height - Math.round(height * window.devicePixelRatio);
-    await win.setSize(new window.__TAURI__.dpi.LogicalSize(280, height));
+    const scaledHeight = Math.round(height * window.devicePixelRatio);
+    const newY = pos.y + size.height - scaledHeight;
+    // Move first (anchor bottom), then resize
     await win.setPosition(new window.__TAURI__.dpi.PhysicalPosition(pos.x, newY));
+    await win.setSize(new window.__TAURI__.dpi.PhysicalSize(size.width, scaledHeight));
   } catch (err) {
     console.error("Resize error:", err);
   }
