@@ -221,8 +221,8 @@
           </svg>
         </div>
         <div class="step-content">
-          <div class="step-title">Accessibility Permission</div>
-          <div class="step-desc">Required for FN key recording and auto-paste.</div>
+          <div class="step-title">Input Monitoring Permission</div>
+          <div class="step-desc">Required for FN key recording. Toggle Zecho ON in System Settings.</div>
           <div class="step-status" id="status-accessibility"></div>
         </div>
       </div>
@@ -326,7 +326,7 @@
         btn.textContent = "Downloading...";
       } else if (!state.accessibility) {
         btn.disabled = false;
-        btn.textContent = "Grant Accessibility";
+        btn.textContent = "Open Input Monitoring";
         btn.onclick = grantAccessibility;
       } else if (!state.whisper || !state.cleanup) {
         btn.disabled = false;
