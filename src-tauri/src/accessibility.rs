@@ -27,16 +27,18 @@ mod macos {
     }
 
     pub fn is_microphone_enabled() -> bool {
-        // Try to enumerate audio input devices — if mic is denied, this returns no devices
-        match std::panic::catch_unwind(|| {
-            use cpal::traits::{DeviceTrait, HostTrait};
-            let host = cpal::default_host();
-            host.default_input_device()
-                .and_then(|d| d.default_input_config().ok())
-                .is_some()
-        }) {
-            Ok(result) => result,
-            Err(_) => false,
+        // Check AVCaptureDevice authorization status without triggering a prompt
+        // Uses NSAppleScript to query status passively
+        let output = std::process::Command::new("osascript")
+            .arg("-e")
+            .arg("use framework \"AVFoundation\"\nset status to current application's AVCaptureDevice's authorizationStatusForMediaType:(current application's AVMediaTypeAudio)\nreturn status as integer")
+            .output();
+        match output {
+            Ok(o) if o.status.success() => {
+                let status = String::from_utf8_lossy(&o.stdout).trim().to_string();
+                status == "3" // 3 = authorized
+            }
+            _ => false,
         }
     }
 
