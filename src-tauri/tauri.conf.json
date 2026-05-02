@@ -41,7 +41,10 @@
     "active": true,
     "targets": "all",
     "icon": [
-      "icons/icon.png"
+      "icons/icon.png",
+      "icons/icon.icns",
+      "icons/icon_256x256.png",
+      "icons/icon_32x32.png"
     ],
     "resources": []
   },

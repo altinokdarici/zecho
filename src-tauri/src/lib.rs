@@ -365,22 +365,15 @@ fn create_tray_icon(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> 
     use tauri::menu::{Menu, MenuItem};
     use tauri::tray::TrayIconBuilder;
 
-    let size = 22u32;
-    let mut rgba = vec![0u8; (size * size * 4) as usize];
-    for y in 0..size {
-        for x in 0..size {
-            let idx = ((y * size + x) * 4) as usize;
-            let cx = size as f32 / 2.0;
-            let cy = size as f32 / 2.0;
-            let dist = ((x as f32 - cx).powi(2) + (y as f32 - cy).powi(2)).sqrt();
-            if dist < cx - 2.0 {
-                rgba[idx] = 255;
-                rgba[idx + 1] = 255;
-                rgba[idx + 2] = 255;
-                rgba[idx + 3] = 220;
-            }
-        }
-    }
+    let icon = {
+        let png_data = include_bytes!("../icons/tray_icon.png");
+        let decoder = png::Decoder::new(std::io::Cursor::new(png_data));
+        let mut reader = decoder.read_info().map_err(|e| e.to_string())?;
+        let mut buf = vec![0u8; reader.output_buffer_size()];
+        let info = reader.next_frame(&mut buf).map_err(|e| e.to_string())?;
+        buf.truncate(info.buffer_size());
+        tauri::image::Image::new_owned(buf, info.width, info.height)
+    };
 
     let show = MenuItem::with_id(app, "show", "Show Zecho", true, None::<&str>)?;
     let settings_item = MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;
@@ -388,7 +381,8 @@ fn create_tray_icon(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> 
     let menu = Menu::with_items(app, &[&show, &settings_item, &quit])?;
 
     TrayIconBuilder::new()
-        .icon(tauri::image::Image::new_owned(rgba, size, size))
+        .icon(icon)
+        .icon_as_template(true)
         .menu(&menu)
         .tooltip("Zecho")
         .on_menu_event(|app, event| match event.id().as_ref() {
