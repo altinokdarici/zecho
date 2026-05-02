@@ -11,10 +11,21 @@ mod macos {
     }
 
     pub fn prompt_accessibility() {
-        // Open Input Monitoring (where FN key permission lives)
-        let _ = std::process::Command::new("open")
-            .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")
-            .spawn();
+        // Trigger the system prompt by requesting accessibility with prompt option
+        unsafe {
+            extern "C" {
+                fn AXIsProcessTrustedWithOptions(options: *const std::ffi::c_void) -> bool;
+            }
+            use core_foundation::base::TCFType;
+            use core_foundation::boolean::CFBoolean;
+            use core_foundation::dictionary::CFDictionary;
+            use core_foundation::string::CFString;
+
+            let key = CFString::new("AXTrustedCheckOptionPrompt");
+            let value = CFBoolean::true_value();
+            let options = CFDictionary::from_CFType_pairs(&[(key, value)]);
+            AXIsProcessTrustedWithOptions(options.as_concrete_TypeRef() as *const _);
+        }
     }
 }
 

@@ -561,6 +561,11 @@ pub fn run() {
             // Convert pill to NSPanel (receives mouse without stealing focus)
             macos_panel::make_panel(app);
 
+            // Prompt for accessibility on launch if not granted
+            if !accessibility::is_accessibility_enabled() {
+                accessibility::prompt_accessibility();
+            }
+
             // Show setup window if anything is missing
             {
                 let whisper_ready = models::is_downloaded(models::default_whisper_model());
