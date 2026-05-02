@@ -47,7 +47,10 @@
       "icons/128x128@2x.png",
       "icons/32x32.png"
     ],
-    "resources": []
+    "resources": [],
+    "macOS": {
+      "signingIdentity": "Developer ID Application: DAVID BENJAMIN ZEARING (VMGW2V57S7)"
+    }
   },
   "plugins": {
     "updater": {
