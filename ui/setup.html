@@ -379,13 +379,27 @@
       btn.dataset.action = nextAction;
     }
 
+    function withTimeout(promise, ms) {
+      return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject("timeout"), ms))
+      ]);
+    }
+
     async function checkState() {
       try {
-        state.accessibility = await invoke("check_accessibility");
-        const setup = await invoke("check_setup");
+        state.accessibility = await withTimeout(invoke("check_accessibility"), 2000);
+      } catch (e) {
+        state.accessibility = false;
+      }
+      try {
+        const setup = await withTimeout(invoke("check_setup"), 2000);
         state.whisper = setup.whisper_ready;
         state.cleanup = setup.cleanup_ready;
-      } catch (e) {}
+      } catch (e) {
+        state.whisper = false;
+        state.cleanup = false;
+      }
       updateUI();
     }
 
