@@ -278,6 +278,11 @@ fn open_mic_settings() {
     accessibility::open_mic_settings();
 }
 
+#[tauri::command]
+fn request_microphone() {
+    accessibility::request_microphone();
+}
+
 #[derive(serde::Serialize, Clone)]
 struct SetupStatus {
     whisper_ready: bool,
@@ -567,6 +572,7 @@ pub fn run() {
             start_fn_listener,
             check_microphone,
             open_mic_settings,
+            request_microphone,
             check_setup,
             setup_download_models,
             complete_setup,
@@ -590,9 +596,7 @@ pub fn run() {
                 let cleanup_ready = ["qwen25-1.5b", "qwen25-3b"].iter()
                     .any(|id| models::get_model(id).map(|m| models::is_downloaded(m)).unwrap_or(false));
                 let accessibility = accessibility::is_accessibility_enabled();
-                let microphone = accessibility::is_microphone_enabled();
-
-                if !whisper_ready || !cleanup_ready || !accessibility || !microphone {
+                if !whisper_ready || !cleanup_ready || !accessibility {
                     if let Some(window) = app.get_webview_window("setup") {
                         window.show().ok();
                         window.set_focus().ok();

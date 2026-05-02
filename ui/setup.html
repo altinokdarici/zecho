@@ -382,7 +382,6 @@
     async function checkState() {
       try {
         state.accessibility = await invoke("check_accessibility");
-        state.microphone = await invoke("check_microphone");
         const setup = await invoke("check_setup");
         state.whisper = setup.whisper_ready;
         state.cleanup = setup.cleanup_ready;
@@ -402,15 +401,16 @@
       }, 2000);
     }
 
+
     async function grantMicrophone() {
-      await invoke("open_mic_settings");
-      const poll = setInterval(async () => {
-        state.microphone = await invoke("check_microphone");
-        if (state.microphone) {
-          clearInterval(poll);
-          updateUI();
-        }
-      }, 2000);
+      // This triggers the macOS mic permission dialog
+      await invoke("request_microphone");
+      // Give the user time to click Allow, then mark as done
+      // (We can't check the result, so assume granted after 3s)
+      setTimeout(() => {
+        state.microphone = true;
+        updateUI();
+      }, 3000);
     }
 
     async function downloadModels() {

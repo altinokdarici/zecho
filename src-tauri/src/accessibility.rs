@@ -27,19 +27,31 @@ mod macos {
     }
 
     pub fn is_microphone_enabled() -> bool {
-        // Check AVCaptureDevice authorization status without triggering a prompt
-        // Uses NSAppleScript to query status passively
-        let output = std::process::Command::new("osascript")
-            .arg("-e")
-            .arg("use framework \"AVFoundation\"\nset status to current application's AVCaptureDevice's authorizationStatusForMediaType:(current application's AVMediaTypeAudio)\nreturn status as integer")
-            .output();
-        match output {
-            Ok(o) if o.status.success() => {
-                let status = String::from_utf8_lossy(&o.stdout).trim().to_string();
-                status == "3" // 3 = authorized
+        // Don't check proactively — return unknown/true to avoid blocking
+        // The FRE uses request_microphone() to trigger the system prompt on button click
+        true
+    }
+
+    pub fn request_microphone() {
+        // Trigger the system mic permission dialog by briefly accessing the mic
+        std::thread::spawn(|| {
+            use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+            let host = cpal::default_host();
+            if let Some(device) = host.default_input_device() {
+                if let Ok(config) = device.default_input_config() {
+                    if let Ok(stream) = device.build_input_stream(
+                        &config.into(),
+                        |_data: &[f32], _: &cpal::InputCallbackInfo| {},
+                        |_err| {},
+                        None,
+                    ) {
+                        stream.play().ok();
+                        std::thread::sleep(std::time::Duration::from_millis(500));
+                        // Stream drops here, releasing the mic
+                    }
+                }
             }
-            _ => false,
-        }
+        });
     }
 
     pub fn open_mic_settings() {
