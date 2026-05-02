@@ -713,9 +713,16 @@ pub fn run() {
                 }
             });
 
-            // Note: pill position is set before make_panel() above.
-            // Position persistence is handled by persist_pill_position command
-            // called from the frontend after drag ends.
+            if let Some(hist) = app.get_webview_window("history") {
+                let hist_handle = hist.clone();
+                hist.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        hist_handle.hide().ok();
+                    }
+                });
+            }
+
             Ok(())
         })
         .run(tauri::generate_context!())
