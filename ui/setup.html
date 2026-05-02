@@ -290,8 +290,18 @@
   </div>
 
   <script>
+    // Global error handler — show errors visibly, never silently die
+    window.onerror = function(msg, src, line, col, err) {
+      document.body.innerHTML = `<pre style="color:#ff453a;padding:20px;font-size:12px;white-space:pre-wrap;">SETUP ERROR\n${msg}\n${src}:${line}:${col}\n${err?.stack || ''}</pre>`;
+      return true;
+    };
+    window.onunhandledrejection = function(e) {
+      document.body.innerHTML = `<pre style="color:#ff453a;padding:20px;font-size:12px;white-space:pre-wrap;">SETUP ERROR (async)\n${e.reason}\n${e.reason?.stack || ''}</pre>`;
+    };
+
     const { invoke } = window.__TAURI__.core;
     const { listen } = window.__TAURI__.event;
+    const $ = (sel) => document.querySelector(sel);
 
     let state = {
       accessibility: false,
@@ -469,14 +479,18 @@
       }
     }
 
-    $("#btn-skip").addEventListener("click", finish);
-
-    $("#btn-action").addEventListener("click", () => {
-      const action = $("#btn-action").dataset.action;
+    $("#btn-action").addEventListener("click", function() {
+      var action = this.dataset.action;
+      this.textContent = "Working...";
+      this.disabled = true;
       if (action === "accessibility") grantAccessibility();
       else if (action === "microphone") grantMicrophone();
       else if (action === "download") downloadModels();
       else if (action === "finish") finish();
+    });
+
+    $("#btn-skip").addEventListener("click", function() {
+      finish();
     });
 
     checkState();

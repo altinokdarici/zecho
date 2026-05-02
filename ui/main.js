@@ -1,3 +1,10 @@
+window.onerror = function(msg, src, line, col, err) {
+  console.error("ZECHO ERROR:", msg, src, line, col, err?.stack);
+};
+window.onunhandledrejection = function(e) {
+  console.error("ZECHO ASYNC ERROR:", e.reason, e.reason?.stack);
+};
+
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
