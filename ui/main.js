@@ -46,26 +46,29 @@ function startWaveform() {
       level = await invoke("get_audio_level");
     } catch (_) {}
 
-    // Normalize: typical speech RMS is 0.01-0.2, scale to 0-1
-    const normalized = Math.min(1, level * 8);
+    // Aggressive normalization — make speech visually prominent
+    const normalized = Math.min(1, Math.pow(level * 15, 0.7));
 
-    // Shift bars left and add new level on right
     barLevels.shift();
     barLevels.push(normalized);
 
     ctx.clearRect(0, 0, w, h);
     for (let i = 0; i < bars; i++) {
-      const amp = 0.15 + barLevels[i] * 0.85;
-      const barH = amp * h * 0.8;
+      const amp = 0.08 + barLevels[i] * 0.92;
+      const barH = amp * h * 0.9;
       const x = offsetX + i * (barW + 2);
       const y = (h - barH) / 2;
-      const alpha = 0.4 + barLevels[i] * 0.5;
-      ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+      const alpha = 0.5 + barLevels[i] * 0.5;
+      // Tint bars slightly purple when active
+      const r = Math.round(200 + barLevels[i] * 55);
+      const g = Math.round(200 + barLevels[i] * 30);
+      const b = 255;
+      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
       ctx.beginPath();
       ctx.roundRect(x, y, barW, barH, 1.5);
       ctx.fill();
     }
-  }, 60);
+  }, 50);
 }
 
 function stopWaveform() {
