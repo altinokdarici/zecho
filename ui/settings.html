@@ -630,11 +630,13 @@
         </div>`;
     }
 
-    let currentWhisperModel = "whisper-base-en";
-    let currentCleanupModel = "qwen3-4b-instruct";
+    let currentWhisperModel = "";
+    let currentCleanupModel = "";
 
     async function loadModels() {
       try {
+        currentWhisperModel = settings.active_whisper_model || "whisper-base-en";
+        currentCleanupModel = settings.active_cleanup_model || "qwen25-1.5b";
         const models = await invoke("list_models");
 
         document.getElementById("whisper-models").innerHTML = models
@@ -671,10 +673,13 @@
         if (modelType === "Whisper") {
           await invoke("load_whisper_model_cmd", { modelId });
           currentWhisperModel = modelId;
+          settings.active_whisper_model = modelId;
         } else {
           await invoke("load_cleanup_model", { modelId });
           currentCleanupModel = modelId;
+          settings.active_cleanup_model = modelId;
         }
+        saveSettings();
         loadModels();
       } catch (err) {
         console.error("Model load error:", err);

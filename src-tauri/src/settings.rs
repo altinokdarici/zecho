@@ -36,6 +36,8 @@ pub struct Settings {
     pub writing_style: WritingStyle,
     pub cleanup_level: CleanupLevel,
     pub custom_prompt: Option<String>,
+    pub active_whisper_model: String,
+    pub active_cleanup_model: String,
     pub pill_x_pct: Option<f64>,
     pub pill_y_pct: Option<f64>,
     #[serde(skip)]
@@ -51,6 +53,8 @@ impl Default for Settings {
             writing_style: WritingStyle::default(),
             cleanup_level: CleanupLevel::default(),
             custom_prompt: None,
+            active_whisper_model: "whisper-base-en".to_string(),
+            active_cleanup_model: "qwen25-1.5b".to_string(),
             pill_x_pct: None,
             pill_y_pct: None,
             path: PathBuf::new(),
