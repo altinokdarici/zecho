@@ -1,49 +1,20 @@
 name: Release
 
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: "Version to release (e.g. 0.2.0)"
-        required: true
-        type: string
+  push:
+    tags:
+      - 'v*'
 
 jobs:
-  set-version:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set version in config files
-        run: |
-          cd src-tauri
-          python3 -c "
-          import json
-          with open('tauri.conf.json', 'r') as f:
-              config = json.load(f)
-          config['version'] = '${{ inputs.version }}'
-          with open('tauri.conf.json', 'w') as f:
-              json.dump(config, f, indent=2)
-          "
-          sed -i 's/^version = ".*"/version = "${{ inputs.version }}"/' Cargo.toml
-      - uses: actions/upload-artifact@v4
-        with:
-          name: versioned-config
-          path: |
-            src-tauri/tauri.conf.json
-            src-tauri/Cargo.toml
-
   build-macos:
-    needs: set-version
     runs-on: macos-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@v4
-        with:
-          name: versioned-config
-          path: src-tauri/
+      - name: Extract version from tag
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -69,7 +40,7 @@ jobs:
           security list-keychain -d user -s "$KEYCHAIN_PATH" login.keychain-db
           rm /tmp/certificate.p12
 
-      - name: Build and release
+      - name: Build and upload to release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -81,21 +52,8 @@ jobs:
           CMAKE_C_FLAGS: "-march=armv8.2-a"
           CMAKE_CXX_FLAGS: "-march=armv8.2-a"
         with:
-          tagName: v${{ inputs.version }}
-          releaseName: "Zecho v${{ inputs.version }}"
-          releaseBody: |
-            ## Zecho v${{ inputs.version }}
-
-            Voice-to-clipboard with local AI processing.
-            No subscriptions, no cloud, no ads.
-
-            ### Installation
-            Download the `.dmg` file, open it, and drag Zecho to Applications.
-            Models (~1.1GB) are downloaded automatically on first launch.
-
-            ### Requirements
-            - macOS 12+ (Apple Silicon)
-            - Grant Accessibility permission for FN key recording
+          tagName: v${{ env.VERSION }}
+          releaseName: "Zecho v${{ env.VERSION }}"
           releaseDraft: false
           prerelease: false
           args: --target aarch64-apple-darwin
@@ -109,14 +67,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
+      - name: Extract version from tag
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
       - name: Update homepage download link and version
         run: |
-          sed -i 's|releases/download/v[0-9.]*/Zecho_[0-9.]*_aarch64\.dmg|releases/download/v${{ inputs.version }}/Zecho_${{ inputs.version }}_aarch64.dmg|' docs/index.html
-          sed -i 's|v[0-9.]*[0-9] \&middot; Requires|v${{ inputs.version }} \&middot; Requires|' docs/index.html
+          sed -i 's|releases/download/v[0-9.]*/Zecho_[0-9.]*_aarch64\.dmg|releases/download/v${{ env.VERSION }}/Zecho_${{ env.VERSION }}_aarch64.dmg|' docs/index.html
+          sed -i 's|v[0-9.]*[0-9] \&middot; Requires|v${{ env.VERSION }} \&middot; Requires|' docs/index.html
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/index.html
-          git diff --cached --quiet || git commit -m "Update homepage to v${{ inputs.version }}"
+          git diff --cached --quiet || git commit -m "Update homepage to v${{ env.VERSION }}"
           git push
