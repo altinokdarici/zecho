@@ -190,13 +190,17 @@ pub fn build_prompt(
         "You clean voice transcriptions. Rules:\n\
         1. {}\n\
         2. {}\n\
-        3. Output ONLY the cleaned text{}{}\n",
+        3. If the input ends with punctuation, try to preserve it in the output.\n\
+        4. Output ONLY the cleaned text{}{}\n",
         level_rules, style_instruction, examples, custom
     );
 
     if model_id.contains("gemma") {
         format!(
-            "<start_of_turn>user\n{}\nDo not add quotes, markdown, or explanation.\n\nClean this:\n{}<end_of_turn>\n<start_of_turn>model\n",
+            "<start_of_turn>user\n{}<end_of_turn>\n\
+            <start_of_turn>model\nUnderstood, send the text.<end_of_turn>\n\
+            <start_of_turn>user\n{}<end_of_turn>\n\
+            <start_of_turn>model\n",
             system, raw_text
         )
     } else {
@@ -254,3 +258,4 @@ fn strip_model_artifacts(text: &str) -> String {
 
     s.trim().to_string()
 }
+

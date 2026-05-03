@@ -114,10 +114,18 @@
       font-variant-numeric: tabular-nums;
     }
 
-    .item-info {
+    .item-actions {
       flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
       opacity: 0;
       transition: opacity 0.1s ease;
+    }
+
+    .item:hover .item-actions { opacity: 1; }
+
+    .item-info, .item-delete {
       display: flex;
       align-items: center;
       justify-content: center;
@@ -131,8 +139,8 @@
       padding: 0;
     }
 
-    .item:hover .item-info { opacity: 1; }
     .item-info:hover { background: rgba(255, 255, 255, 0.1); color: var(--text); }
+    .item-delete:hover { background: rgba(255, 59, 48, 0.15); color: var(--recording); }
 
     .detail {
       padding: 10px 14px;
@@ -159,7 +167,15 @@
       line-height: 1.5;
       color: var(--text);
       word-break: break-word;
+      cursor: pointer;
+      border-radius: 4px;
+      padding: 4px;
+      margin: -4px;
+      transition: background 0.1s ease;
     }
+
+    .detail-text:hover { background: rgba(255, 255, 255, 0.08); }
+    .detail-text.copied { color: var(--success); }
 
     .detail-timing {
       grid-column: 1 / -1;
@@ -227,6 +243,10 @@
       return div.innerHTML;
     }
 
+    function escapeAttr(str) {
+      return str.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
     async function render() {
       const list = document.getElementById("list");
       const empty = document.getElementById("empty");
@@ -253,21 +273,28 @@
                 timingHtml +
               '</div>' +
             '</div>' +
-            '<button class="item-info" data-info-id="' + item.id + '">' +
-              '<svg width="12" height="12" viewBox="0 0 16 16" fill="none">' +
-                '<circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.2"/>' +
-                '<path d="M8 7v4M8 5.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
-              '</svg>' +
-            '</button>' +
+            '<div class="item-actions">' +
+              '<button class="item-delete" data-delete-id="' + item.id + '">' +
+                '<svg width="10" height="10" viewBox="0 0 10 10" fill="none">' +
+                  '<path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>' +
+                '</svg>' +
+              '</button>' +
+              '<button class="item-info" data-info-id="' + item.id + '">' +
+                '<svg width="12" height="12" viewBox="0 0 16 16" fill="none">' +
+                  '<circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.2"/>' +
+                  '<path d="M8 7v4M8 5.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
+                '</svg>' +
+              '</button>' +
+            '</div>' +
           '</div>' +
           '<div class="detail hidden" id="detail-' + item.id + '">' +
             '<div class="detail-col">' +
               '<div class="detail-label">Original</div>' +
-              '<div class="detail-text">' + escapeHtml(item.raw_text) + '</div>' +
+              '<div class="detail-text" data-copy="' + escapeAttr(item.raw_text) + '">' + escapeHtml(item.raw_text) + '</div>' +
             '</div>' +
             '<div class="detail-col">' +
               '<div class="detail-label">Cleaned</div>' +
-              '<div class="detail-text">' + escapeHtml(item.text) + '</div>' +
+              '<div class="detail-text" data-copy="' + escapeAttr(item.text) + '">' + escapeHtml(item.text) + '</div>' +
             '</div>' +
             (hasTimings ? '<div class="detail-timing">STT ' + (item.transcribe_ms / 1000).toFixed(1) + 's · AI ' + (item.cleanup_ms / 1000).toFixed(1) + 's · Total ' + ((item.transcribe_ms + item.cleanup_ms) / 1000).toFixed(1) + 's</div>' : "") +
             (item.stt_model || item.cleanup_model ? '<div class="detail-models">' +
@@ -294,6 +321,32 @@
             const id = btn.dataset.infoId;
             const detail = document.getElementById("detail-" + id);
             if (detail) detail.classList.toggle("hidden");
+          });
+        });
+
+        list.querySelectorAll(".item-delete").forEach(btn => {
+          btn.addEventListener("click", async (e) => {
+            e.stopPropagation();
+            try {
+              await invoke("delete_history_item", { id: btn.dataset.deleteId });
+              render();
+            } catch (_) {}
+          });
+        });
+
+        list.querySelectorAll(".detail-text[data-copy]").forEach(el => {
+          el.addEventListener("click", async () => {
+            const text = el.dataset.copy;
+            try {
+              await navigator.clipboard.writeText(text);
+              const original = el.textContent;
+              el.textContent = "Copied!";
+              el.classList.add("copied");
+              setTimeout(() => {
+                el.textContent = original;
+                el.classList.remove("copied");
+              }, 800);
+            } catch (_) {}
           });
         });
       } catch (_) {}
