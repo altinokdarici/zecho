@@ -108,7 +108,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: master
+          ref: main
       - name: Update homepage download link and version
         run: |
           sed -i 's|releases/download/v[0-9.]*/Zecho_[0-9.]*_aarch64\.dmg|releases/download/v${{ inputs.version }}/Zecho_${{ inputs.version }}_aarch64.dmg|' docs/index.html
