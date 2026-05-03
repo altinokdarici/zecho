@@ -103,8 +103,12 @@ fn run_inference(model: &LlamaModel, backend: &LlamaBackend, prompt: &str) -> St
             Err(_) => break,
         }
 
-        if output.contains("<|im_end|>") || output.contains("<|endoftext|>") || output.contains("<end_of_turn>") {
-            output = output.replace("<|im_end|>", "").replace("<|endoftext|>", "").replace("<end_of_turn>", "");
+        if output.contains("<|im_end|>") || output.contains("<|endoftext|>") || output.contains("<end_of_turn>") || output.contains("<start_of_turn>") {
+            output = output
+                .replace("<|im_end|>", "")
+                .replace("<|endoftext|>", "")
+                .replace("<end_of_turn>", "")
+                .replace("<start_of_turn>", "");
             break;
         }
 

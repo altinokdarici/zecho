@@ -89,9 +89,11 @@ impl TextCleaner {
                 let result = response.trim()
                     .replace("\\n", "\n")
                     .replace("<end_of_turn>", "")
+                    .replace("<start_of_turn>", "")
                     .replace("<|im_end|>", "")
                     .replace("<|endoftext|>", "")
                     .trim().to_string();
+                let result = strip_model_artifacts(&result);
                 if result.is_empty() {
                     let _ = req.reply.send(Ok(req.raw_text.clone()));
                 } else {
@@ -194,7 +196,7 @@ pub fn build_prompt(
 
     if model_id.contains("gemma") {
         format!(
-            "<start_of_turn>user\n{}\nNow clean:\n{}<end_of_turn>\n<start_of_turn>model\n",
+            "<start_of_turn>user\n{}\nDo not add quotes, markdown, or explanation.\n\nClean this:\n{}<end_of_turn>\n<start_of_turn>model\n",
             system, raw_text
         )
     } else {
@@ -203,4 +205,52 @@ pub fn build_prompt(
             system, raw_text
         )
     }
+}
+
+fn strip_model_artifacts(text: &str) -> String {
+    let mut s = text.trim().to_string();
+
+    // Strip wrapping quotes (double or single)
+    if s.len() >= 2 {
+        if (s.starts_with('"') && s.ends_with('"'))
+            || (s.starts_with('\'') && s.ends_with('\''))
+        {
+            s = s[1..s.len() - 1].to_string();
+        }
+    }
+
+    // Strip wrapping backticks
+    if s.starts_with('`') && s.ends_with('`') && !s.contains('\n') {
+        s = s[1..s.len() - 1].to_string();
+    }
+
+    // Strip markdown bold wrapping
+    if s.starts_with("**") && s.ends_with("**") && s.len() > 4 {
+        s = s[2..s.len() - 2].to_string();
+    }
+
+    // Strip common prefixes added by models
+    let lower = s.to_lowercase();
+    let prefixes = [
+        "here is the cleaned text:\n",
+        "here is the cleaned text: ",
+        "here's the cleaned text:\n",
+        "here's the cleaned text: ",
+        "cleaned text:\n",
+        "cleaned text: ",
+        "cleaned version:\n",
+        "cleaned version: ",
+        "cleaned:\n",
+        "cleaned: ",
+        "clean:\n",
+        "clean: ",
+    ];
+    for prefix in &prefixes {
+        if lower.starts_with(prefix) {
+            s = s[prefix.len()..].to_string();
+            break;
+        }
+    }
+
+    s.trim().to_string()
 }
