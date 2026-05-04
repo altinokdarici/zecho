@@ -708,6 +708,16 @@ pub fn run() {
             check_for_updates,
         ])
         .setup(|app| {
+            #[cfg(target_os = "macos")]
+            {
+                use cocoa::appkit::{NSApp, NSApplication, NSApplicationActivationPolicy};
+                unsafe {
+                    NSApp().setActivationPolicy_(
+                        NSApplicationActivationPolicy::NSApplicationActivationPolicyAccessory,
+                    );
+                }
+            }
+
             create_tray_icon(app).ok();
             register_global_shortcut(app);
 
