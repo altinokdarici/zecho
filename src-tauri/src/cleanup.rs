@@ -182,17 +182,18 @@ pub fn build_prompt(
         _ => "",
     };
 
-    let custom = custom_prompt
-        .map(|p| format!("\n{}", p))
-        .unwrap_or_default();
+    let (custom_rule, output_rule_num) = match custom_prompt {
+        Some(p) if !p.trim().is_empty() => (format!("4. {}\n        ", p.trim()), "5"),
+        _ => (String::new(), "4"),
+    };
 
     let system = format!(
         "You clean voice transcriptions. Rules:\n\
         1. {}\n\
         2. {}\n\
         3. If the input ends with punctuation, try to preserve it in the output.\n\
-        4. Output ONLY the cleaned text{}{}\n",
-        level_rules, style_instruction, examples, custom
+        {}{}. Output ONLY the cleaned text{}\n",
+        level_rules, style_instruction, custom_rule, output_rule_num, examples
     );
 
     if model_id.contains("gemma") {
