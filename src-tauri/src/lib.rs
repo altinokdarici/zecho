@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate objc;
+
 mod accessibility;
 mod audio;
 pub mod cleanup;
@@ -588,6 +591,20 @@ fn save_pill_position_from_window(window: &tauri::WebviewWindow, state: &AppStat
     }
 }
 
+fn get_visible_frame() -> Option<(f64, f64, f64, f64)> {
+    use cocoa::appkit::NSScreen;
+    use cocoa::base::nil;
+    use cocoa::foundation::NSRect;
+    unsafe {
+        let screen = NSScreen::mainScreen(nil);
+        if screen == nil {
+            return None;
+        }
+        let frame: NSRect = msg_send![screen, visibleFrame];
+        Some((frame.origin.x, frame.origin.y, frame.size.width, frame.size.height))
+    }
+}
+
 fn position_pill_window(window: &tauri::WebviewWindow, state: &AppState) {
     let monitor = match window.primary_monitor() {
         Ok(Some(m)) => m,
@@ -615,6 +632,15 @@ fn position_pill_window(window: &tauri::WebviewWindow, state: &AppState) {
         let x = (x_pct * screen.width as f64) as i32;
         let bottom_y = (y_pct * screen.height as f64) as i32;
         (x, bottom_y - win_h)
+    } else if let Some((vf_x, vf_y, vf_w, _)) = get_visible_frame() {
+        // visibleFrame is in AppKit coords (origin at bottom-left).
+        // Convert to screen coords (origin at top-left) for Tauri positioning.
+        let screen_h = screen.height as f64 / scale;
+        let safe_bottom = vf_y;
+        let margin = 8.0;
+        let x = ((vf_x + vf_w * 0.75) * scale) as i32 - win_w / 2;
+        let y = ((screen_h - safe_bottom - margin) * scale) as i32 - win_h;
+        (x, y)
     } else {
         let x = (screen.width as i32 - win_w) / 2;
         let y = screen.height as i32 - win_h - (60.0 * scale) as i32;
