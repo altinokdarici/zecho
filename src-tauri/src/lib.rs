@@ -29,9 +29,11 @@ struct AppState {
 }
 
 #[tauri::command]
-fn start_recording(state: tauri::State<'_, AppState>) -> Result<(), String> {
+fn start_recording(state: tauri::State<'_, AppState>, app: tauri::AppHandle) -> Result<(), String> {
     let recorder = state.recorder.lock().map_err(|e| e.to_string())?;
-    recorder.start()
+    recorder.start()?;
+    register_escape_shortcut(&app);
+    Ok(())
 }
 
 #[tauri::command]
@@ -45,6 +47,7 @@ fn get_audio_level(state: tauri::State<'_, AppState>) -> f32 {
 
 #[tauri::command]
 fn stop_recording(state: tauri::State<'_, AppState>, app: tauri::AppHandle) -> Result<(), String> {
+    unregister_escape_shortcut(&app);
     let recorder = state.recorder.lock().map_err(|e| e.to_string())?;
     let samples = recorder.stop();
     drop(recorder);
@@ -71,7 +74,8 @@ fn stop_recording(state: tauri::State<'_, AppState>, app: tauri::AppHandle) -> R
 }
 
 #[tauri::command]
-fn cancel_recording(state: tauri::State<'_, AppState>) -> Result<(), String> {
+fn cancel_recording(state: tauri::State<'_, AppState>, app: tauri::AppHandle) -> Result<(), String> {
+    unregister_escape_shortcut(&app);
     let recorder = state.recorder.lock().map_err(|e| e.to_string())?;
     recorder.stop();
     Ok(())
@@ -659,11 +663,24 @@ fn register_global_shortcut(app: &tauri::App) {
     app.global_shortcut().on_shortcut(shortcut, |app_handle, _shortcut, _event| {
         let _ = app_handle.emit("toggle-recording", ());
     }).ok();
+}
+
+fn register_escape_shortcut(app: &tauri::AppHandle) {
+    use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Shortcut};
 
     let esc = Shortcut::new(None, Code::Escape);
-    app.global_shortcut().on_shortcut(esc, |app_handle, _shortcut, _event| {
-        let _ = app_handle.emit("cancel-recording", ());
-    }).ok();
+    if !app.global_shortcut().is_registered(esc) {
+        app.global_shortcut().on_shortcut(esc, |app_handle, _shortcut, _event| {
+            let _ = app_handle.emit("cancel-recording", ());
+        }).ok();
+    }
+}
+
+fn unregister_escape_shortcut(app: &tauri::AppHandle) {
+    use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Shortcut};
+
+    let esc = Shortcut::new(None, Code::Escape);
+    app.global_shortcut().unregister(esc).ok();
 }
 
 fn init_models_async(app_handle: tauri::AppHandle) {
