@@ -3,7 +3,7 @@ mod audio;
 pub mod cleanup;
 mod history;
 mod hotkey;
-mod macos_panel;
+pub mod macos_panel;
 mod models;
 pub mod settings;
 mod transcribe;
@@ -186,6 +186,7 @@ fn clear_history(state: tauri::State<'_, AppState>) -> Result<(), String> {
 #[tauri::command]
 fn open_settings(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("settings") {
+        macos_panel::set_dock_visible(true);
         window.show().map_err(|e| e.to_string())?;
         window.set_focus().map_err(|e| e.to_string())?;
     }
@@ -549,6 +550,7 @@ fn create_tray_icon(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> 
             }
             "settings" => {
                 if let Some(window) = app.get_webview_window("settings") {
+                    macos_panel::set_dock_visible(true);
                     window.show().ok();
                     window.set_focus().ok();
                 }
@@ -720,6 +722,7 @@ pub fn run() {
             }
 
             macos_panel::make_panel(app);
+
             init_models_async(app.handle().clone());
 
             // Only start FN key listener if accessibility is already granted
@@ -728,16 +731,17 @@ pub fn run() {
                 hotkey::start_fn_key_listener(app.handle().clone());
             }
 
-            // Show setup window only on first run
+            // Show setup window only on first run, otherwise show pill
             {
                 let setup_complete = app.state::<AppState>()
                     .settings.lock()
                     .map(|s| s.setup_complete)
                     .unwrap_or(false);
-                if !setup_complete {
+                if setup_complete {
                     if let Some(pill) = app.get_webview_window("pill") {
-                        pill.hide().ok();
+                        pill.show().ok();
                     }
+                } else {
                     if let Some(window) = app.get_webview_window("setup") {
                         window.show().ok();
                         window.set_focus().ok();
@@ -767,14 +771,23 @@ pub fn run() {
             for label in &["history", "settings"] {
                 if let Some(win) = app.get_webview_window(label) {
                     let handle = win.clone();
+                    let is_settings = *label == "settings";
                     win.on_window_event(move |event| {
                         if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                             api.prevent_close();
                             handle.hide().ok();
+                            if is_settings {
+                                macos_panel::set_dock_visible(false);
+                            }
                         }
                     });
                 }
             }
+
+            // Hide dock icon after all window/panel setup is complete.
+            // Tauri activates the app during window creation which overrides LSUIElement,
+            // so we push the policy back to Accessory here.
+            macos_panel::set_dock_visible(false);
 
             Ok(())
         })
