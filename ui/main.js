@@ -203,8 +203,11 @@ listen("pill-hover", (event) => {
     pill.classList.remove("hover");
   }
 });
-listen("fn-key-down", () => handleFnDown());
-listen("fn-key-up", () => handleFnUp());
+let fnKeyEnabled = true;
+invoke("get_settings").then((s) => { fnKeyEnabled = s.fn_key_enabled !== false; }).catch(() => {});
+listen("settings-changed", (event) => { fnKeyEnabled = event.payload.fn_key_enabled !== false; });
+listen("fn-key-down", () => { if (fnKeyEnabled) handleFnDown(); });
+listen("fn-key-up", () => { if (fnKeyEnabled) handleFnUp(); });
 listen("toggle-recording", () => {
   if (isRecording) {
     stopRecording();

@@ -84,9 +84,11 @@ fn cancel_recording(state: tauri::State<'_, AppState>, app: tauri::AppHandle) ->
 fn process_recording(state: &AppState, samples: Vec<f32>) -> Result<String, String> {
     use std::time::Instant;
 
+    let language = state.settings.lock().map(|s| s.language.clone()).unwrap_or_else(|_| "en".to_string());
+
     let t0 = Instant::now();
     let transcriber = state.transcriber.lock().map_err(|e| e.to_string())?;
-    let raw_text = transcriber.transcribe(&samples)?;
+    let raw_text = transcriber.transcribe(&samples, &language)?;
     drop(transcriber);
     let transcribe_ms = t0.elapsed().as_millis() as u64;
 
@@ -103,6 +105,7 @@ fn process_recording(state: &AppState, samples: Vec<f32>) -> Result<String, Stri
         &settings.cleanup_level,
         settings.custom_prompt.as_deref(),
         &settings.active_cleanup_model,
+        &language,
     ) {
         Ok(t) => t,
         Err(e) => {
@@ -206,12 +209,14 @@ fn get_settings(state: tauri::State<'_, AppState>) -> Result<Settings, String> {
 }
 
 #[tauri::command]
-fn update_settings(new_settings: Settings, state: tauri::State<'_, AppState>) -> Result<(), String> {
+fn update_settings(new_settings: Settings, state: tauri::State<'_, AppState>, app: tauri::AppHandle) -> Result<(), String> {
     let mut settings = state.settings.lock().map_err(|e| e.to_string())?;
     let path = settings.path.clone();
     *settings = new_settings;
     settings.path = path;
-    settings.save()
+    settings.save()?;
+    app.emit("settings-changed", &*settings).ok();
+    Ok(())
 }
 
 #[tauri::command]
@@ -274,6 +279,48 @@ fn load_whisper_model_cmd(model_id: String, state: tauri::State<'_, AppState>) -
     }
     let mut transcriber = state.transcriber.lock().map_err(|e| e.to_string())?;
     transcriber.load_model(&path)
+}
+
+#[tauri::command]
+fn update_hotkey(hotkey: String, state: tauri::State<'_, AppState>, app: tauri::AppHandle) -> Result<(), String> {
+    use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
+
+    let old_hotkey = state.settings.lock().map(|s| s.hotkey.clone()).unwrap_or_default();
+    if let Some((mods, code)) = parse_hotkey(&old_hotkey) {
+        let old_shortcut = Shortcut::new(mods, code);
+        app.global_shortcut().unregister(old_shortcut).ok();
+    }
+
+    let (mods, code) = parse_hotkey(&hotkey).ok_or("Invalid hotkey")?;
+    let new_shortcut = Shortcut::new(mods, code);
+    app.global_shortcut().on_shortcut(new_shortcut, |app_handle, _shortcut, _event| {
+        let _ = app_handle.emit("toggle-recording", ());
+    }).map_err(|e| e.to_string())?;
+
+    let mut settings = state.settings.lock().map_err(|e| e.to_string())?;
+    settings.hotkey = hotkey;
+    settings.save()
+}
+
+#[tauri::command]
+fn switch_language(language: String, state: tauri::State<'_, AppState>) -> Result<Option<String>, String> {
+    let settings = state.settings.lock().map_err(|e| e.to_string())?;
+    let current_whisper = settings.active_whisper_model.clone();
+    drop(settings);
+
+    let target_id = models::whisper_model_for_language(&current_whisper, &language);
+    if target_id == current_whisper {
+        return Ok(None);
+    }
+
+    let info = models::get_model(&target_id).ok_or("Unknown model")?;
+    let path = models::model_path(info);
+    if path.exists() {
+        let mut transcriber = state.transcriber.lock().map_err(|e| e.to_string())?;
+        transcriber.load_model(&path)?;
+    }
+
+    Ok(Some(target_id))
 }
 
 #[tauri::command]
@@ -656,13 +703,66 @@ fn position_pill_window(window: &tauri::WebviewWindow, state: &AppState) {
         .ok();
 }
 
-fn register_global_shortcut(app: &tauri::App) {
-    use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut};
+fn parse_hotkey(hotkey: &str) -> Option<(Option<tauri_plugin_global_shortcut::Modifiers>, tauri_plugin_global_shortcut::Code)> {
+    use tauri_plugin_global_shortcut::{Code, Modifiers};
 
-    let shortcut = Shortcut::new(Some(Modifiers::ALT), Code::Space);
-    app.global_shortcut().on_shortcut(shortcut, |app_handle, _shortcut, _event| {
-        let _ = app_handle.emit("toggle-recording", ());
-    }).ok();
+    let parts: Vec<&str> = hotkey.split('+').map(|s| s.trim().to_lowercase()).collect::<Vec<_>>()
+        .iter().map(|s| s.as_str()).collect::<Vec<_>>()
+        .into_iter().collect();
+    // Re-do to avoid lifetime issues
+    let parts: Vec<String> = hotkey.split('+').map(|s| s.trim().to_lowercase()).collect();
+
+    let mut mods = Modifiers::empty();
+    let mut key_part = String::new();
+
+    for (i, part) in parts.iter().enumerate() {
+        if i == parts.len() - 1 {
+            key_part = part.clone();
+        } else {
+            match part.as_str() {
+                "ctrl" | "control" => mods |= Modifiers::CONTROL,
+                "alt" | "option" | "opt" => mods |= Modifiers::ALT,
+                "shift" => mods |= Modifiers::SHIFT,
+                "cmd" | "command" | "meta" | "super" => mods |= Modifiers::META,
+                _ => return None,
+            }
+        }
+    }
+
+    let code = match key_part.as_str() {
+        "space" => Code::Space,
+        "a" => Code::KeyA, "b" => Code::KeyB, "c" => Code::KeyC, "d" => Code::KeyD,
+        "e" => Code::KeyE, "f" => Code::KeyF, "g" => Code::KeyG, "h" => Code::KeyH,
+        "i" => Code::KeyI, "j" => Code::KeyJ, "k" => Code::KeyK, "l" => Code::KeyL,
+        "m" => Code::KeyM, "n" => Code::KeyN, "o" => Code::KeyO, "p" => Code::KeyP,
+        "q" => Code::KeyQ, "r" => Code::KeyR, "s" => Code::KeyS, "t" => Code::KeyT,
+        "u" => Code::KeyU, "v" => Code::KeyV, "w" => Code::KeyW, "x" => Code::KeyX,
+        "y" => Code::KeyY, "z" => Code::KeyZ,
+        "0" => Code::Digit0, "1" => Code::Digit1, "2" => Code::Digit2, "3" => Code::Digit3,
+        "4" => Code::Digit4, "5" => Code::Digit5, "6" => Code::Digit6, "7" => Code::Digit7,
+        "8" => Code::Digit8, "9" => Code::Digit9,
+        "f1" => Code::F1, "f2" => Code::F2, "f3" => Code::F3, "f4" => Code::F4,
+        "f5" => Code::F5, "f6" => Code::F6, "f7" => Code::F7, "f8" => Code::F8,
+        "f9" => Code::F9, "f10" => Code::F10, "f11" => Code::F11, "f12" => Code::F12,
+        _ => return None,
+    };
+
+    let mod_opt = if mods.is_empty() { None } else { Some(mods) };
+    Some((mod_opt, code))
+}
+
+fn register_global_shortcut(app: &tauri::App) {
+    use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
+
+    let state: tauri::State<'_, AppState> = app.state();
+    let hotkey = state.settings.lock().map(|s| s.hotkey.clone()).unwrap_or_else(|_| "alt+space".to_string());
+
+    if let Some((mods, code)) = parse_hotkey(&hotkey) {
+        let shortcut = Shortcut::new(mods, code);
+        app.global_shortcut().on_shortcut(shortcut, |app_handle, _shortcut, _event| {
+            let _ = app_handle.emit("toggle-recording", ());
+        }).ok();
+    }
 }
 
 fn register_escape_shortcut(app: &tauri::AppHandle) {
@@ -738,6 +838,8 @@ pub fn run() {
             download_model,
             load_cleanup_model,
             load_whisper_model_cmd,
+            switch_language,
+            update_hotkey,
             check_accessibility,
             open_accessibility_settings,
             start_fn_listener,

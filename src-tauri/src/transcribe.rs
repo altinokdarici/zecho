@@ -27,7 +27,7 @@ impl Transcriber {
         self.ctx.is_some()
     }
 
-    pub fn transcribe(&self, audio_samples: &[f32]) -> Result<String, String> {
+    pub fn transcribe(&self, audio_samples: &[f32], language: &str) -> Result<String, String> {
         let ctx = self
             .ctx
             .as_ref()
@@ -40,7 +40,7 @@ impl Transcriber {
         let mut state = ctx.create_state().map_err(|e| format!("Whisper state error: {}", e))?;
 
         let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
-        params.set_language(Some("en"));
+        params.set_language(Some(language));
         params.set_print_progress(false);
         params.set_print_realtime(false);
         params.set_print_timestamps(false);

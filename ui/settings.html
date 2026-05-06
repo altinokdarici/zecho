@@ -216,6 +216,28 @@
 
     .toggle input:checked ~ .toggle-knob { transform: translateX(18px); }
 
+    /* ── Select dropdown ── */
+
+    .select-wrap select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 13px;
+      padding: 6px 28px 6px 10px;
+      outline: none;
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2398989d' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      transition: border-color 0.15s ease;
+    }
+
+    .select-wrap select:focus { border-color: var(--accent); }
+
     /* ── Textarea ── */
 
     .custom-prompt textarea {
@@ -361,6 +383,43 @@
 
     .model-size { font-size: 11px; color: #636366; margin-top: 2px; }
 
+    /* ── Hotkey recorder ── */
+
+    .hotkey-recorder {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    .hotkey-recorder.recording kbd {
+      border-color: var(--accent);
+      color: var(--accent);
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .hotkey-edit-btn {
+      font-size: 11px;
+      color: var(--text-secondary);
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 3px 8px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s ease;
+    }
+
+    .hotkey-edit-btn:hover {
+      color: var(--text);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
     /* ── Footer ── */
 
     .footer {
@@ -380,15 +439,15 @@
   </div>
 
   <div class="tabs">
-    <button class="tab active" data-tab="style">Style</button>
+    <button class="tab active" data-tab="general">General</button>
+    <button class="tab" data-tab="style">Style</button>
     <button class="tab" data-tab="models">Models</button>
-    <button class="tab" data-tab="general">General</button>
   </div>
 
   <div class="tab-content">
 
     <!-- ══ Style tab ══ -->
-    <div class="tab-pane active" id="tab-style">
+    <div class="tab-pane" id="tab-style">
       <div class="section">
         <div class="section-label">Writing Style</div>
         <div class="card-grid cols-3" id="style-grid">
@@ -473,7 +532,45 @@
     </div>
 
     <!-- ══ General tab ══ -->
-    <div class="tab-pane" id="tab-general">
+    <div class="tab-pane active" id="tab-general">
+      <div class="section">
+        <div class="section-label">Language</div>
+        <div class="settings-group">
+          <div class="setting-row">
+            <span class="label">Dictation language</span>
+            <div class="select-wrap">
+              <select id="language-select">
+                <option value="en">English</option>
+                <option value="zh">中文 (Chinese)</option>
+                <option value="es">Español (Spanish)</option>
+                <option value="fr">Français (French)</option>
+                <option value="de">Deutsch (German)</option>
+                <option value="pt">Português (Portuguese)</option>
+                <option value="it">Italiano (Italian)</option>
+                <option value="ja">日本語 (Japanese)</option>
+                <option value="ko">한국어 (Korean)</option>
+                <option value="ru">Русский (Russian)</option>
+                <option value="nl">Nederlands (Dutch)</option>
+                <option value="pl">Polski (Polish)</option>
+                <option value="tr">Türkçe (Turkish)</option>
+                <option value="ar">العربية (Arabic)</option>
+                <option value="hi">हिन्दी (Hindi)</option>
+                <option value="th">ไทย (Thai)</option>
+                <option value="vi">Tiếng Việt (Vietnamese)</option>
+                <option value="id">Bahasa Indonesia</option>
+                <option value="cs">Čeština (Czech)</option>
+                <option value="uk">Українська (Ukrainian)</option>
+                <option value="sv">Svenska (Swedish)</option>
+                <option value="da">Dansk (Danish)</option>
+                <option value="no">Norsk (Norwegian)</option>
+                <option value="fi">Suomi (Finnish)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="section-info">Switching language will use the appropriate speech model. Non-English languages require multilingual models.</div>
+      </div>
+
       <div class="section">
         <div class="section-label">Behavior</div>
         <div class="settings-group">
@@ -492,35 +589,28 @@
         <div class="section-label">Hotkey</div>
         <div class="settings-group">
           <div class="setting-row">
-            <span class="label">Record key</span>
-            <div class="hotkey-display">
-              <kbd>Fn</kbd>
-            </div>
+            <span class="label">Fn key (hold to record)</span>
+            <label class="toggle">
+              <input type="checkbox" id="fn-key-enabled" checked />
+              <span class="toggle-track"></span>
+              <span class="toggle-knob"></span>
+            </label>
           </div>
           <div class="setting-row">
-            <span class="label">Fallback shortcut</span>
-            <div class="hotkey-display">
-              <kbd>Option</kbd>
-              <kbd>Space</kbd>
+            <span class="label">Keyboard shortcut</span>
+            <div class="hotkey-recorder" id="hotkey-recorder">
+              <div class="hotkey-display" id="hotkey-display"></div>
+              <button class="hotkey-edit-btn" id="hotkey-edit-btn">Change</button>
             </div>
           </div>
         </div>
-        <div class="section-info">Hold Fn to record, release to stop. Double-tap Fn to lock recording. Press Escape to cancel.</div>
+        <div class="section-info">Fn: hold to record, release to stop. Double-tap to lock. The keyboard shortcut toggles recording on/off.</div>
       </div>
 
-      <div class="section">
-        <div class="section-label">About</div>
-        <div class="settings-group">
-          <div class="setting-row">
-            <span class="label">Version</span>
-            <span class="value">0.1.0</span>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 
-  <div class="footer">Zecho</div>
+  <div class="footer" id="footer">Zecho</div>
 
   <script>
     const { invoke } = window.__TAURI__.core;
@@ -561,6 +651,10 @@
       document.getElementById("cleanup-models-wrapper").style.opacity = cleanupOn ? "1" : "0.4";
       document.getElementById("cleanup-models-wrapper").style.pointerEvents = cleanupOn ? "auto" : "none";
       if (cleanupOn) previousCleanupLevel = settings.cleanup_level;
+
+      document.getElementById("language-select").value = settings.language || "en";
+      document.getElementById("fn-key-enabled").checked = settings.fn_key_enabled !== false;
+      renderHotkey();
     }
 
     async function saveSettings() {
@@ -603,6 +697,33 @@
       saveSettings();
     });
 
+    document.getElementById("fn-key-enabled").addEventListener("change", (e) => {
+      settings.fn_key_enabled = e.target.checked;
+      saveSettings();
+    });
+
+    document.getElementById("language-select").addEventListener("change", async (e) => {
+      settings.language = e.target.value;
+      try {
+        const newModelId = await invoke("switch_language", { language: settings.language });
+        if (newModelId) {
+          settings.active_whisper_model = newModelId;
+          currentWhisperModel = newModelId;
+        }
+      } catch (err) {
+        console.error("Language switch error:", err);
+      }
+      saveSettings();
+      await loadModels();
+
+      // Auto-download the needed whisper model if not yet downloaded
+      const models = await invoke("list_models");
+      const needed = models.find((m) => m.id === currentWhisperModel);
+      if (needed && !needed.downloaded && !(needed.id in activeDownloads)) {
+        downloadModel(needed.id);
+      }
+    });
+
     let promptTimeout;
     document.getElementById("custom-prompt").addEventListener("input", (e) => {
       clearTimeout(promptTimeout);
@@ -611,6 +732,82 @@
         saveSettings();
       }, 500);
     });
+
+    // ── Hotkey recorder ──
+
+    const KEY_LABELS = {
+      " ": "Space", Control: "Ctrl", Alt: "Option", Meta: "Cmd", Shift: "Shift",
+    };
+
+    function hotkeyToKbds(hotkey) {
+      if (!hotkey) return "<kbd>Option</kbd><kbd>Space</kbd>";
+      return hotkey.split("+").map((p) => {
+        const label = { alt: "Option", ctrl: "Ctrl", shift: "Shift", cmd: "Cmd", meta: "Cmd", space: "Space" }[p.toLowerCase()] || p.toUpperCase();
+        return `<kbd>${label}</kbd>`;
+      }).join("");
+    }
+
+    function renderHotkey() {
+      document.getElementById("hotkey-display").innerHTML = hotkeyToKbds(settings.hotkey || "alt+space");
+    }
+
+    let recordingHotkey = false;
+
+    document.getElementById("hotkey-edit-btn").addEventListener("click", () => {
+      if (recordingHotkey) {
+        recordingHotkey = false;
+        document.getElementById("hotkey-recorder").classList.remove("recording");
+        document.getElementById("hotkey-edit-btn").textContent = "Change";
+        renderHotkey();
+        return;
+      }
+      recordingHotkey = true;
+      document.getElementById("hotkey-recorder").classList.add("recording");
+      document.getElementById("hotkey-display").innerHTML = "<kbd>Press shortcut...</kbd>";
+      document.getElementById("hotkey-edit-btn").textContent = "Cancel";
+    });
+
+    document.addEventListener("keydown", async (e) => {
+      if (!recordingHotkey) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (e.key === "Escape") {
+        recordingHotkey = false;
+        document.getElementById("hotkey-recorder").classList.remove("recording");
+        document.getElementById("hotkey-edit-btn").textContent = "Change";
+        renderHotkey();
+        return;
+      }
+
+      // Ignore bare modifier keys
+      if (["Control", "Alt", "Shift", "Meta"].includes(e.key)) return;
+
+      const parts = [];
+      if (e.ctrlKey) parts.push("ctrl");
+      if (e.altKey) parts.push("alt");
+      if (e.shiftKey) parts.push("shift");
+      if (e.metaKey) parts.push("cmd");
+
+      if (parts.length === 0) return; // Require at least one modifier
+
+      const key = e.key === " " ? "space" : e.key.toLowerCase();
+      parts.push(key);
+
+      const hotkey = parts.join("+");
+
+      try {
+        await invoke("update_hotkey", { hotkey });
+        settings.hotkey = hotkey;
+      } catch (err) {
+        console.error("Hotkey update error:", err);
+      }
+
+      recordingHotkey = false;
+      document.getElementById("hotkey-recorder").classList.remove("recording");
+      document.getElementById("hotkey-edit-btn").textContent = "Change";
+      renderHotkey();
+    }, true);
 
     // ── Models ──
 
@@ -655,6 +852,7 @@
 
     let currentWhisperModel = "";
     let currentCleanupModel = "";
+    const activeDownloads = {};
 
     async function loadModels() {
       try {
@@ -662,8 +860,10 @@
         currentCleanupModel = settings.active_cleanup_model;
         const models = await invoke("list_models");
 
+        const lang = settings.language || "en";
+        const needMulti = lang !== "en";
         document.getElementById("whisper-models").innerHTML = models
-          .filter((m) => m.model_type === "Whisper")
+          .filter((m) => m.model_type === "Whisper" && m.multilingual === needMulti)
           .map((m) => renderModelCard(m, m.id === currentWhisperModel))
           .join("");
 
@@ -671,6 +871,14 @@
           .filter((m) => m.model_type === "Cleanup")
           .map((m) => renderModelCard(m, m.id === currentCleanupModel))
           .join("");
+
+        // Restore progress for any active downloads after re-render
+        for (const [id, pct] of Object.entries(activeDownloads)) {
+          const btn = document.getElementById("btn-" + id);
+          const pctEl = document.getElementById("pct-" + id);
+          if (btn) { btn.textContent = "Cancel"; btn.className = "model-btn cancel"; }
+          if (pctEl) pctEl.textContent = pct + "%";
+        }
 
         document.querySelectorAll("[data-download]").forEach(function(btn) {
           btn.addEventListener("click", function() { downloadModel(btn.dataset.download); });
@@ -685,6 +893,7 @@
 
     async function downloadModel(modelId) {
       console.log("[settings] downloadModel called:", modelId);
+      activeDownloads[modelId] = 0;
       var btn = document.getElementById("btn-" + modelId);
       var pct = document.getElementById("pct-" + modelId);
       if (btn) {
@@ -696,6 +905,7 @@
         await invoke("download_model", { modelId });
       } catch (err) {
         console.error("[settings] Download error:", err);
+        delete activeDownloads[modelId];
         if (btn) { btn.textContent = "Retry"; btn.className = "model-btn download"; }
         if (pct) pct.textContent = "";
       }
@@ -721,19 +931,30 @@
 
     listen("model-download-progress", (event) => {
       var [id, pct] = event.payload;
+      if (id in activeDownloads) activeDownloads[id] = pct;
       var el = document.getElementById("pct-" + id);
       if (el) el.textContent = pct + "%";
     });
     listen("model-download-complete", (event) => {
       console.log("[settings] download complete:", event.payload);
+      delete activeDownloads[event.payload];
       loadModels();
     });
     listen("model-download-error", (event) => {
       console.error("[settings] download error:", event.payload);
+      delete activeDownloads[event.payload];
       loadModels();
     });
 
     loadSettings().then(() => loadModels());
+
+    // ── Footer version ──
+    (async () => {
+      try {
+        const version = await window.__TAURI__.app.getVersion();
+        document.getElementById("footer").textContent = `Zecho v${version}`;
+      } catch (_) {}
+    })();
   </script>
 </body>
 </html>
