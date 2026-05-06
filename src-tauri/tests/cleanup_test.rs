@@ -3,7 +3,7 @@ use zecho_lib::settings::{CleanupLevel, WritingStyle};
 
 #[test]
 fn prompt_has_chatml_format() {
-    let prompt = build_prompt("hello world", &WritingStyle::Casual, &CleanupLevel::Light, None, "qwen");
+    let prompt = build_prompt("hello world", &WritingStyle::Casual, &CleanupLevel::Light, None, "qwen", "en");
 
     assert!(prompt.starts_with("<|im_start|>system\n"));
     assert!(prompt.contains("<|im_end|>"));
@@ -17,7 +17,7 @@ fn prompt_has_chatml_format() {
 
 #[test]
 fn medium_level_mentions_self_corrections() {
-    let prompt = build_prompt("test", &WritingStyle::Casual, &CleanupLevel::Medium, None, "qwen");
+    let prompt = build_prompt("test", &WritingStyle::Casual, &CleanupLevel::Medium, None, "qwen", "en");
     assert!(
         prompt.contains("self-corrections"),
         "Medium level should mention self-corrections"
@@ -26,7 +26,7 @@ fn medium_level_mentions_self_corrections() {
 
 #[test]
 fn high_level_mentions_self_corrections() {
-    let prompt = build_prompt("test", &WritingStyle::Casual, &CleanupLevel::High, None, "qwen");
+    let prompt = build_prompt("test", &WritingStyle::Casual, &CleanupLevel::High, None, "qwen", "en");
     assert!(
         prompt.contains("self-corrections"),
         "High level should mention self-corrections"
@@ -35,7 +35,7 @@ fn high_level_mentions_self_corrections() {
 
 #[test]
 fn light_level_instruction_focuses_on_filler() {
-    let prompt = build_prompt("test", &WritingStyle::Casual, &CleanupLevel::Light, None, "qwen");
+    let prompt = build_prompt("test", &WritingStyle::Casual, &CleanupLevel::Light, None, "qwen", "en");
     assert!(
         prompt.contains("Remove filler words"),
         "Light level should focus on filler word removal"
@@ -48,7 +48,7 @@ fn light_level_instruction_focuses_on_filler() {
 
 #[test]
 fn formal_style_has_full_punctuation() {
-    let prompt = build_prompt("test", &WritingStyle::Formal, &CleanupLevel::Light, None, "qwen");
+    let prompt = build_prompt("test", &WritingStyle::Formal, &CleanupLevel::Light, None, "qwen", "en");
     assert!(
         prompt.contains("Capitalize properly") && prompt.contains("full punctuation"),
         "Formal style should require proper capitalization and full punctuation"
@@ -57,7 +57,7 @@ fn formal_style_has_full_punctuation() {
 
 #[test]
 fn casual_style_has_light_punctuation() {
-    let prompt = build_prompt("test", &WritingStyle::Casual, &CleanupLevel::Light, None, "qwen");
+    let prompt = build_prompt("test", &WritingStyle::Casual, &CleanupLevel::Light, None, "qwen", "en");
     assert!(
         prompt.contains("Capitalize normally") && prompt.contains("light punctuation"),
         "Casual style should use normal capitalization and light punctuation"
@@ -66,7 +66,7 @@ fn casual_style_has_light_punctuation() {
 
 #[test]
 fn very_casual_style_is_lowercase() {
-    let prompt = build_prompt("test", &WritingStyle::VeryCasual, &CleanupLevel::Light, None, "qwen");
+    let prompt = build_prompt("test", &WritingStyle::VeryCasual, &CleanupLevel::Light, None, "qwen", "en");
     assert!(
         prompt.contains("All lowercase") && prompt.contains("minimal punctuation"),
         "VeryCasual style should use all lowercase and minimal punctuation"
@@ -75,9 +75,9 @@ fn very_casual_style_is_lowercase() {
 
 #[test]
 fn styles_produce_different_instructions() {
-    let formal = build_prompt("x", &WritingStyle::Formal, &CleanupLevel::Light, None, "qwen");
-    let casual = build_prompt("x", &WritingStyle::Casual, &CleanupLevel::Light, None, "qwen");
-    let very_casual = build_prompt("x", &WritingStyle::VeryCasual, &CleanupLevel::Light, None, "qwen");
+    let formal = build_prompt("x", &WritingStyle::Formal, &CleanupLevel::Light, None, "qwen", "en");
+    let casual = build_prompt("x", &WritingStyle::Casual, &CleanupLevel::Light, None, "qwen", "en");
+    let very_casual = build_prompt("x", &WritingStyle::VeryCasual, &CleanupLevel::Light, None, "qwen", "en");
 
     assert_ne!(formal, casual);
     assert_ne!(casual, very_casual);
@@ -92,6 +92,7 @@ fn custom_prompt_is_appended() {
         &CleanupLevel::Light,
         Some("Always use Oxford commas"),
         "qwen",
+        "en",
     );
     assert!(
         prompt.contains("4. Always use Oxford commas"),
@@ -105,7 +106,7 @@ fn custom_prompt_is_appended() {
 
 #[test]
 fn no_custom_prompt_means_no_extra_section() {
-    let prompt = build_prompt("test", &WritingStyle::Casual, &CleanupLevel::Light, None, "qwen");
+    let prompt = build_prompt("test", &WritingStyle::Casual, &CleanupLevel::Light, None, "qwen", "en");
     assert!(
         prompt.contains("4. Output ONLY"),
         "Without a custom prompt, 'Output ONLY' should be rule #4"
@@ -120,6 +121,7 @@ fn gemma_format_includes_custom_rule() {
         &CleanupLevel::Light,
         Some("When I say let me know abbreviate as lmk"),
         "gemma",
+        "en",
     );
     assert!(prompt.contains("<start_of_turn>"), "Gemma model should use Gemma chat format");
     assert!(

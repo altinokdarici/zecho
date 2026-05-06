@@ -12,6 +12,7 @@ pub struct ModelInfo {
     pub filename: &'static str,
     pub url: &'static str,
     pub model_type: ModelType,
+    pub multilingual: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -21,7 +22,7 @@ pub enum ModelType {
 }
 
 pub const AVAILABLE_MODELS: &[ModelInfo] = &[
-    // Whisper models
+    // Whisper models — English-only (faster for English)
     ModelInfo {
         id: "whisper-tiny-en",
         name: "Fast",
@@ -32,6 +33,7 @@ pub const AVAILABLE_MODELS: &[ModelInfo] = &[
         filename: "ggml-tiny.en.bin",
         url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin",
         model_type: ModelType::Whisper,
+        multilingual: false,
     },
     ModelInfo {
         id: "whisper-base-en",
@@ -43,6 +45,7 @@ pub const AVAILABLE_MODELS: &[ModelInfo] = &[
         filename: "ggml-base.en.bin",
         url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin",
         model_type: ModelType::Whisper,
+        multilingual: false,
     },
     ModelInfo {
         id: "whisper-small-en",
@@ -54,6 +57,44 @@ pub const AVAILABLE_MODELS: &[ModelInfo] = &[
         filename: "ggml-small.en.bin",
         url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin",
         model_type: ModelType::Whisper,
+        multilingual: false,
+    },
+    // Whisper models — Multilingual
+    ModelInfo {
+        id: "whisper-tiny-multi",
+        name: "Fast",
+        description: "Quickest transcription. Multilingual support.",
+        size_mb: 75,
+        quality_score: 5,
+        speed_score: 10,
+        filename: "ggml-tiny.bin",
+        url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin",
+        model_type: ModelType::Whisper,
+        multilingual: true,
+    },
+    ModelInfo {
+        id: "whisper-base-multi",
+        name: "Balanced",
+        description: "Recommended — accurate and fast. Multilingual support.",
+        size_mb: 142,
+        quality_score: 7,
+        speed_score: 8,
+        filename: "ggml-base.bin",
+        url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin",
+        model_type: ModelType::Whisper,
+        multilingual: true,
+    },
+    ModelInfo {
+        id: "whisper-small-multi",
+        name: "Accurate",
+        description: "Best accuracy. Multilingual support.",
+        size_mb: 466,
+        quality_score: 8,
+        speed_score: 5,
+        filename: "ggml-small.bin",
+        url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin",
+        model_type: ModelType::Whisper,
+        multilingual: true,
     },
     // Cleanup models
     ModelInfo {
@@ -66,6 +107,7 @@ pub const AVAILABLE_MODELS: &[ModelInfo] = &[
         filename: "Qwen2.5-1.5B-Instruct-Q4_K_M.gguf",
         url: "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf",
         model_type: ModelType::Cleanup,
+        multilingual: false,
     },
     ModelInfo {
         id: "qwen25-3b",
@@ -77,6 +119,7 @@ pub const AVAILABLE_MODELS: &[ModelInfo] = &[
         filename: "Qwen2.5-3B-Instruct-Q4_K_M.gguf",
         url: "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf",
         model_type: ModelType::Cleanup,
+        multilingual: false,
     },
     ModelInfo {
         id: "gemma4-e2b",
@@ -88,6 +131,7 @@ pub const AVAILABLE_MODELS: &[ModelInfo] = &[
         filename: "gemma-4-E2B-it-Q4_K_M.gguf",
         url: "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf",
         model_type: ModelType::Cleanup,
+        multilingual: false,
     },
     ModelInfo {
         id: "gemma4-e4b",
@@ -99,6 +143,7 @@ pub const AVAILABLE_MODELS: &[ModelInfo] = &[
         filename: "gemma-4-E4B-it-Q4_K_M.gguf",
         url: "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf",
         model_type: ModelType::Cleanup,
+        multilingual: false,
     },
 ];
 
@@ -125,6 +170,33 @@ pub fn default_whisper_model() -> &'static ModelInfo {
     get_model("whisper-base-en").unwrap()
 }
 
+pub fn whisper_model_for_language(current_id: &str, language: &str) -> String {
+    let need_multilingual = language != "en";
+    let current = get_model(current_id);
+    let current_is_multilingual = current.map(|m| m.multilingual).unwrap_or(false);
+
+    if need_multilingual == current_is_multilingual {
+        return current_id.to_string();
+    }
+
+    let tier = if current_id.contains("tiny") {
+        "tiny"
+    } else if current_id.contains("small") {
+        "small"
+    } else {
+        "base"
+    };
+
+    let suffix = if need_multilingual { "multi" } else { "en" };
+    let target_id = format!("whisper-{}-{}", tier, suffix);
+
+    if get_model(&target_id).is_some() {
+        target_id
+    } else {
+        current_id.to_string()
+    }
+}
+
 pub fn default_cleanup_model() -> &'static ModelInfo {
     get_model("qwen25-1.5b").unwrap()
 }
@@ -139,6 +211,7 @@ pub struct ModelStatus {
     pub speed_score: u8,
     pub downloaded: bool,
     pub model_type: ModelType,
+    pub multilingual: bool,
 }
 
 pub fn list_models() -> Vec<ModelStatus> {
@@ -153,6 +226,7 @@ pub fn list_models() -> Vec<ModelStatus> {
             speed_score: m.speed_score,
             downloaded: is_downloaded(m),
             model_type: m.model_type.clone(),
+            multilingual: m.multilingual,
         })
         .collect()
 }

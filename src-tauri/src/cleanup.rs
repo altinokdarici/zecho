@@ -8,6 +8,7 @@ pub struct CleanupRequest {
     pub level: CleanupLevel,
     pub custom_prompt: Option<String>,
     pub model_id: String,
+    pub language: String,
     pub reply: mpsc::Sender<Result<String, String>>,
 }
 
@@ -65,7 +66,7 @@ impl TextCleaner {
             
 
             for req in rx {
-                let prompt = build_prompt(&req.raw_text, &req.style, &req.level, req.custom_prompt.as_deref(), &req.model_id);
+                let prompt = build_prompt(&req.raw_text, &req.style, &req.level, req.custom_prompt.as_deref(), &req.model_id, &req.language);
                 let escaped = prompt.replace('\n', "\\n");
 
                 if writeln!(stdin, "{}", escaped).is_err() {
@@ -119,6 +120,7 @@ impl TextCleaner {
         level: &CleanupLevel,
         custom_prompt: Option<&str>,
         model_id: &str,
+        language: &str,
     ) -> Result<String, String> {
         if *level == CleanupLevel::None {
             return Ok(raw_text.to_string());
@@ -132,6 +134,7 @@ impl TextCleaner {
                 level: level.clone(),
                 custom_prompt: custom_prompt.map(|s| s.to_string()),
                 model_id: model_id.to_string(),
+                language: language.to_string(),
                 reply: reply_tx,
             };
 
@@ -158,26 +161,90 @@ pub fn build_prompt(
     level: &CleanupLevel,
     custom_prompt: Option<&str>,
     model_id: &str,
+    language: &str,
 ) -> String {
-    let style_instruction = match style {
-        WritingStyle::Formal => "Capitalize properly, use full punctuation.",
-        WritingStyle::Casual => "Capitalize normally, light punctuation.",
-        WritingStyle::VeryCasual => "All lowercase, minimal punctuation.",
+    let lang_name = match language {
+        "zh" => "Chinese",
+        "es" => "Spanish",
+        "fr" => "French",
+        "de" => "German",
+        "pt" => "Portuguese",
+        "it" => "Italian",
+        "ja" => "Japanese",
+        "ko" => "Korean",
+        "ru" => "Russian",
+        "nl" => "Dutch",
+        "pl" => "Polish",
+        "tr" => "Turkish",
+        "ar" => "Arabic",
+        "hi" => "Hindi",
+        "th" => "Thai",
+        "vi" => "Vietnamese",
+        "id" => "Indonesian",
+        "cs" => "Czech",
+        "uk" => "Ukrainian",
+        "sv" => "Swedish",
+        "da" => "Danish",
+        "no" => "Norwegian",
+        "fi" => "Finnish",
+        _ => "",
+    };
+    let is_english = language == "en";
+    let uses_capitalization = !matches!(language, "zh" | "ja" | "ko" | "th" | "ar" | "hi");
+
+    let style_instruction = if uses_capitalization {
+        match style {
+            WritingStyle::Formal => "Capitalize properly, use full punctuation.",
+            WritingStyle::Casual => "Capitalize normally, light punctuation.",
+            WritingStyle::VeryCasual => "All lowercase, minimal punctuation.",
+        }
+    } else {
+        match style {
+            WritingStyle::Formal => "Use full, correct punctuation.",
+            WritingStyle::Casual => "Use light punctuation.",
+            WritingStyle::VeryCasual => "Use minimal punctuation.",
+        }
+    };
+
+    let fillers = match language {
+        "en" => "(um, uh, like, you know, basically, so, I mean, right, well, actually)",
+        "zh" => "(嗯, 啊, 那个, 就是, 然后, 对, 这个, 所以说)",
+        "es" => "(este, pues, o sea, bueno, como, entonces, eh, a ver, digamos)",
+        "fr" => "(euh, ben, genre, en fait, bon, du coup, voilà, quoi, bah)",
+        "de" => "(äh, ähm, also, halt, sozusagen, quasi, na ja, irgendwie, genau)",
+        "pt" => "(tipo, né, então, assim, é, ah, bom, quer dizer, sabe)",
+        "it" => "(cioè, allora, tipo, praticamente, insomma, ecco, diciamo, eh, boh)",
+        "ja" => "(えーと, あのー, まあ, その, なんか, ちょっと, やっぱり, 的な)",
+        "ko" => "(음, 어, 그, 뭐, 그러니까, 좀, 약간, 이제, 진짜)",
+        "ru" => "(ну, вот, это, как бы, типа, значит, короче, так сказать, э)",
+        "nl" => "(eh, uhm, dus, gewoon, zeg maar, eigenlijk, nou, weet je)",
+        "pl" => "(no, wiesz, znaczy, jakby, tak, generalnie, w sumie, po prostu)",
+        "tr" => "(şey, yani, hani, işte, bir nevi, aslında, mesela, evet)",
+        "ar" => "(يعني, هيك, طيب, شو, والله, مش عارف, بس, اممم)",
+        "hi" => "(मतलब, बस, तो, ऐसे, अच्छा, हाँ, वो, ना, अरे)",
+        "th" => "(เอ่อ, อืม, ก็, แบบ, คือ, อ่า, จริงๆ, ประมาณ)",
+        "vi" => "(ừm, à, thì, kiểu, cơ bản là, nói chung, ý là, đại khái)",
+        "id" => "(eh, nah, jadi, gitu, kayak, tuh, emang, anu, kan)",
+        "cs" => "(ehm, jako, prostě, vlastně, takže, no, jaksi, teda)",
+        "uk" => "(ну, от, це, типу, значить, коротше, як би, ем)",
+        "sv" => "(eh, liksom, alltså, typ, asså, ba, ju, va, öh)",
+        "da" => "(øh, altså, liksom, jo, bare, sådan, ikke, hvad)",
+        "no" => "(eh, liksom, altså, bare, sånn, jo, da, typ, øh)",
+        "fi" => "(niinku, tota, siis, niin, no, tavallaan, öö, jotenkin)",
+        _ => "(um, uh)",
     };
 
     let level_rules = match level {
-        CleanupLevel::None => "Do not change any words. Only fix capitalization and punctuation.",
-        CleanupLevel::Light => "Remove filler words (um, uh, like, you know, basically, so). Keep all other words exactly as spoken.",
-        CleanupLevel::Medium => "Remove filler words. Resolve self-corrections (keep the corrected version only).",
-        CleanupLevel::High => "Remove filler words. Resolve self-corrections. You may tighten phrasing slightly but never change meaning.",
+        CleanupLevel::None => "Do not change any words. Only fix punctuation.".to_string(),
+        CleanupLevel::Light => format!("Remove filler words {}. Keep all other words exactly as spoken.", fillers),
+        CleanupLevel::Medium => format!("Remove filler words {}. Resolve self-corrections (keep the corrected version only).", fillers),
+        CleanupLevel::High => format!("Remove filler words {}. Resolve self-corrections. You may tighten phrasing slightly but never change meaning.", fillers),
     };
 
     let examples = match level {
         CleanupLevel::Medium | CleanupLevel::High => "\n\nSelf-correction examples:\n\
             - \"I want red no I mean blue\" → \"I want blue\"\n\
             - \"he is bad. I mean good\" → \"he is good\"\n\
-            - \"use Java actually no use Python\" → \"use Python\"\n\
-            - \"make it bigger well actually smaller\" → \"make it smaller\"\n\
             - \"at 3 sorry 4 o'clock\" → \"at 4 o'clock\"",
         _ => "",
     };
@@ -187,13 +254,19 @@ pub fn build_prompt(
         _ => (String::new(), "4"),
     };
 
+    let task_desc = if is_english {
+        "You clean voice transcriptions. Rules:".to_string()
+    } else {
+        format!("You clean voice transcriptions in {}. Keep ALL output in {}. Do NOT translate to English. Rules:", lang_name, lang_name)
+    };
+
     let system = format!(
-        "You clean voice transcriptions. Rules:\n\
+        "{}\n\
         1. {}\n\
         2. {}\n\
         3. If the input ends with punctuation, try to preserve it in the output.\n\
         {}{}. Output ONLY the cleaned text{}\n",
-        level_rules, style_instruction, custom_rule, output_rule_num, examples
+        task_desc, level_rules, style_instruction, custom_rule, output_rule_num, examples
     );
 
     if model_id.contains("gemma") {

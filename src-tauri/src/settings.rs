@@ -41,8 +41,20 @@ pub struct Settings {
     pub setup_complete: bool,
     pub pill_x_pct: Option<f64>,
     pub pill_y_pct: Option<f64>,
+    #[serde(default = "default_true")]
+    pub fn_key_enabled: bool,
+    #[serde(default = "default_language")]
+    pub language: String,
     #[serde(skip)]
     pub(crate) path: PathBuf,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_language() -> String {
+    "en".to_string()
 }
 
 impl Default for Settings {
@@ -59,6 +71,8 @@ impl Default for Settings {
             setup_complete: false,
             pill_x_pct: None,
             pill_y_pct: None,
+            fn_key_enabled: true,
+            language: "en".to_string(),
             path: PathBuf::new(),
         }
     }

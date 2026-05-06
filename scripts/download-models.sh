@@ -32,6 +32,12 @@ download_model \
     "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin" \
     "142MB"
 
+download_model \
+    "Whisper Base (Multilingual)" \
+    "ggml-base.bin" \
+    "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin" \
+    "142MB"
+
 echo ""
 echo "Text Cleanup (Qwen 3):"
 download_model \
