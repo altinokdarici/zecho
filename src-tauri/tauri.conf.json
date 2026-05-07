@@ -53,6 +53,17 @@
         "resizable": false,
         "visible": false,
         "center": true
+      },
+      {
+        "label": "update",
+        "title": "Zecho Updates",
+        "url": "update.html",
+        "width": 440,
+        "height": 320,
+        "decorations": true,
+        "resizable": false,
+        "visible": false,
+        "center": true
       }
     ],
     "security": {

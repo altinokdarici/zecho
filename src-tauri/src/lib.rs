@@ -26,6 +26,26 @@ struct AppState {
     cleaner: Mutex<TextCleaner>,
     history: Mutex<HistoryStore>,
     settings: Mutex<Settings>,
+    pending_update: Mutex<Option<tauri_plugin_updater::Update>>,
+    update_check_in_progress: std::sync::atomic::AtomicBool,
+    tray_update_item: Mutex<Option<tauri::menu::MenuItem<tauri::Wry>>>,
+    tray_icon: Mutex<Option<tauri::tray::TrayIcon<tauri::Wry>>>,
+}
+
+#[derive(Clone, serde::Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum UpdateState {
+    Checking,
+    UpToDate { current_version: String },
+    Available {
+        version: String,
+        current_version: String,
+        notes: Option<String>,
+        date_unix: Option<i64>,
+    },
+    Downloading { version: String, downloaded: u64, total: Option<u64> },
+    Installing { version: String },
+    Error { message: String },
 }
 
 #[tauri::command]
@@ -532,13 +552,206 @@ fn complete_setup(state: tauri::State<'_, AppState>, app: tauri::AppHandle) -> R
     Ok(())
 }
 
+fn emit_update_state(app: &tauri::AppHandle, state: UpdateState) {
+    app.emit_to("update", "update-state", state).ok();
+}
+
 #[tauri::command]
-async fn check_for_updates(app: tauri::AppHandle) -> Result<Option<String>, String> {
+fn close_update_window(app: tauri::AppHandle) {
+    if let Some(win) = app.get_webview_window("update") {
+        win.hide().ok();
+    }
+}
+
+fn update_tray_label(app: &tauri::AppHandle) {
+    let pending_version = app
+        .state::<AppState>()
+        .pending_update
+        .lock()
+        .ok()
+        .and_then(|p| p.as_ref().map(|u| u.version.clone()));
+
+    if let Ok(item_lock) = app.state::<AppState>().tray_update_item.lock() {
+        if let Some(item) = item_lock.as_ref() {
+            match &pending_version {
+                Some(v) => { item.set_text(format!("Install Zecho v{}", v)).ok(); }
+                None => { item.set_text("Check for Updates…").ok(); }
+            }
+        }
+    }
+
+    if let Ok(icon_lock) = app.state::<AppState>().tray_icon.lock() {
+        if let Some(tray) = icon_lock.as_ref() {
+            if pending_version.is_some() {
+                tray.set_title(Some("↑")).ok();
+            } else {
+                tray.set_title(None::<&str>).ok();
+            }
+        }
+    }
+}
+
+async fn perform_update_check(app: tauri::AppHandle, emit_to_dialog: bool) -> Result<(), String> {
+    use std::sync::atomic::Ordering;
     use tauri_plugin_updater::UpdaterExt;
-    match app.updater().map_err(|e| e.to_string())?.check().await {
-        Ok(Some(update)) => Ok(Some(update.version)),
-        Ok(None) => Ok(None),
-        Err(e) => Err(e.to_string()),
+
+    if app
+        .state::<AppState>()
+        .update_check_in_progress
+        .swap(true, Ordering::Acquire)
+    {
+        return Ok(());
+    }
+
+    struct ResetGuard(tauri::AppHandle);
+    impl Drop for ResetGuard {
+        fn drop(&mut self) {
+            self.0
+                .state::<AppState>()
+                .update_check_in_progress
+                .store(false, std::sync::atomic::Ordering::Release);
+        }
+    }
+    let _guard = ResetGuard(app.clone());
+
+    if emit_to_dialog {
+        emit_update_state(&app, UpdateState::Checking);
+    }
+    let current_version = app.package_info().version.to_string();
+    let result = app
+        .updater()
+        .map_err(|e| e.to_string())?
+        .check()
+        .await;
+    match result {
+        Ok(Some(update)) => {
+            let version = update.version.clone();
+            let notes = update.body.clone();
+            let date_unix = update.date.map(|d| d.unix_timestamp());
+            if let Ok(mut pending) = app.state::<AppState>().pending_update.lock() {
+                *pending = Some(update);
+            }
+            update_tray_label(&app);
+            if emit_to_dialog {
+                emit_update_state(
+                    &app,
+                    UpdateState::Available { version, current_version, notes, date_unix },
+                );
+            }
+        }
+        Ok(None) => {
+            if let Ok(mut pending) = app.state::<AppState>().pending_update.lock() {
+                *pending = None;
+            }
+            update_tray_label(&app);
+            if emit_to_dialog {
+                emit_update_state(&app, UpdateState::UpToDate { current_version });
+            }
+        }
+        Err(e) => {
+            if emit_to_dialog {
+                emit_update_state(&app, UpdateState::Error { message: e.to_string() });
+            } else {
+                eprintln!("Background update check failed: {}", e);
+            }
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn start_update_check(app: tauri::AppHandle) -> Result<(), String> {
+    perform_update_check(app, true).await
+}
+
+#[tauri::command]
+async fn open_update_dialog(app: tauri::AppHandle) -> Result<(), String> {
+    let pending_info = {
+        let state = app.state::<AppState>();
+        let pending_lock = state.pending_update.lock().map_err(|e| e.to_string())?;
+        pending_lock.as_ref().map(|u| {
+            (
+                u.version.clone(),
+                u.body.clone(),
+                u.date.map(|d| d.unix_timestamp()),
+            )
+        })
+    };
+    if let Some((version, notes, date_unix)) = pending_info {
+        let current_version = app.package_info().version.to_string();
+        emit_update_state(
+            &app,
+            UpdateState::Available { version, current_version, notes, date_unix },
+        );
+        Ok(())
+    } else {
+        perform_update_check(app, true).await
+    }
+}
+
+async fn background_update_loop(app: tauri::AppHandle) {
+    use std::time::Duration;
+    tokio::time::sleep(Duration::from_secs(10)).await;
+    loop {
+        let _ = perform_update_check(app.clone(), false).await;
+        tokio::time::sleep(Duration::from_secs(24 * 60 * 60)).await;
+    }
+}
+
+#[tauri::command]
+async fn install_pending_update(app: tauri::AppHandle) -> Result<(), String> {
+    let update = {
+        let state = app.state::<AppState>();
+        let mut pending = state.pending_update.lock().map_err(|e| e.to_string())?;
+        pending.take()
+    };
+    let Some(update) = update else {
+        return Err("No pending update".into());
+    };
+    update_tray_label(&app);
+    let version = update.version.clone();
+    emit_update_state(
+        &app,
+        UpdateState::Downloading { version: version.clone(), downloaded: 0, total: None },
+    );
+
+    let downloaded = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
+    let progress_app = app.clone();
+    let progress_version = version.clone();
+    let progress_downloaded = downloaded.clone();
+    let finish_app = app.clone();
+    let finish_version = version.clone();
+
+    let result = update
+        .download_and_install(
+            move |chunk, total| {
+                let current = progress_downloaded
+                    .fetch_add(chunk as u64, std::sync::atomic::Ordering::Relaxed)
+                    + chunk as u64;
+                emit_update_state(
+                    &progress_app,
+                    UpdateState::Downloading {
+                        version: progress_version.clone(),
+                        downloaded: current,
+                        total,
+                    },
+                );
+            },
+            move || {
+                emit_update_state(
+                    &finish_app,
+                    UpdateState::Installing { version: finish_version.clone() },
+                );
+            },
+        )
+        .await;
+
+    match result {
+        Ok(_) => app.restart(),
+        Err(e) => {
+            emit_update_state(&app, UpdateState::Error { message: e.to_string() });
+            Err(e.to_string())
+        }
     }
 }
 
@@ -558,11 +771,24 @@ fn create_tray_icon(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> 
 
     let history = MenuItem::with_id(app, "history", "Show History", true, None::<&str>)?;
     let settings_item = MenuItem::with_id(app, "settings", "Settings...", true, None::<&str>)?;
+    let check_updates = MenuItem::with_id(app, "check_updates", "Check for Updates…", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit Zecho", true, None::<&str>)?;
-    let sep = tauri::menu::PredefinedMenuItem::separator(app)?;
-    let menu = Menu::with_items(app, &[&history, &sep, &settings_item, &quit])?;
+    let sep1 = tauri::menu::PredefinedMenuItem::separator(app)?;
+    let sep2 = tauri::menu::PredefinedMenuItem::separator(app)?;
+    let menu = Menu::with_items(app, &[
+        &history,
+        &sep1,
+        &settings_item,
+        &check_updates,
+        &sep2,
+        &quit,
+    ])?;
 
-    TrayIconBuilder::new()
+    if let Ok(mut slot) = app.state::<AppState>().tray_update_item.lock() {
+        *slot = Some(check_updates.clone());
+    }
+
+    let tray = TrayIconBuilder::new()
         .icon(icon)
         .icon_as_template(true)
         .menu(&menu)
@@ -607,10 +833,21 @@ fn create_tray_icon(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> 
                     window.set_focus().ok();
                 }
             }
+            "check_updates" => {
+                if let Some(window) = app.get_webview_window("update") {
+                    window.show().ok();
+                    window.set_focus().ok();
+                    app.emit_to("update", "update-window-opened", ()).ok();
+                }
+            }
             "quit" => app.exit(0),
             _ => {}
         })
         .build(app)?;
+
+    if let Ok(mut slot) = app.state::<AppState>().tray_icon.lock() {
+        *slot = Some(tray);
+    }
 
     Ok(())
 }
@@ -810,6 +1047,10 @@ pub fn run() {
         cleaner: Mutex::new(TextCleaner::new()),
         history: Mutex::new(HistoryStore::load(&data_dir)),
         settings: Mutex::new(Settings::load(&data_dir)),
+        pending_update: Mutex::new(None),
+        update_check_in_progress: std::sync::atomic::AtomicBool::new(false),
+        tray_update_item: Mutex::new(None),
+        tray_icon: Mutex::new(None),
     };
 
     // Models loaded async in setup — see init_models_async
@@ -850,7 +1091,10 @@ pub fn run() {
             setup_download_models,
             complete_setup,
             hide_setup,
-            check_for_updates,
+            start_update_check,
+            open_update_dialog,
+            install_pending_update,
+            close_update_window,
         ])
         .setup(|app| {
             #[cfg(target_os = "macos")]
@@ -865,6 +1109,7 @@ pub fn run() {
 
             create_tray_icon(app).ok();
             register_global_shortcut(app);
+            tauri::async_runtime::spawn(background_update_loop(app.handle().clone()));
 
             // Position pill BEFORE converting to NSPanel (set_position doesn't work on NSPanels)
             {
@@ -919,7 +1164,7 @@ pub fn run() {
                 }
             });
 
-            for label in &["history", "settings"] {
+            for label in &["history", "settings", "update"] {
                 if let Some(win) = app.get_webview_window(label) {
                     let handle = win.clone();
                     win.on_window_event(move |event| {
