@@ -1,6 +1,6 @@
 {
   "productName": "Zecho",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "identifier": "com.dzearing.zecho",
   "build": {
     "frontendDist": "../ui"
@@ -70,6 +70,7 @@
       "icons/32x32.png"
     ],
     "resources": [],
+    "createUpdaterArtifacts": true,
     "macOS": {
       "signingIdentity": "Developer ID Application: DAVID BENJAMIN ZEARING (VMGW2V57S7)",
       "entitlements": "Entitlements.plist"
