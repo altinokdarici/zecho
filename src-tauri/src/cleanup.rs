@@ -271,7 +271,9 @@ pub fn build_prompt(
 
     if model_id.contains("gemma") {
         format!(
-            "<start_of_turn>user\n{}\n\nText to clean:\n{}<end_of_turn>\n\
+            "<start_of_turn>user\n{}\n\nText to clean:\nI was gonna say um the thing about that is it works really well<end_of_turn>\n\
+            <start_of_turn>model\nThe thing about that is it works really well.<end_of_turn>\n\
+            <start_of_turn>user\nText to clean:\n{}<end_of_turn>\n\
             <start_of_turn>model\n",
             system, raw_text
         )
